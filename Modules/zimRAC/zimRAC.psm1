@@ -24,6 +24,89 @@ $Global:LdapAutocompleters = @{
 }
 
 
+$Global:AdAutocompleters = @{
+    <#
+        Sucht nach Teams (W...,S...) in unserem Active Directory 
+        uni-passau.de/idm/group
+    #>
+    Team={
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+        
+
+        if($wordToComplete -ne ''){
+            $results=Get-ADGroup -LDAPFilter ('(&(objectclass=group)(|(cn=*' + $wordToComplete + '*)(description=*' + $wordToComplete + '*)))') -SearchBase 'OU=group,OU=idm,DC=ads,DC=uni-passau,DC=de' -Properties cn,description
+        }
+        else{
+            $results=Get-ADGroup -LDAPFilter ('(objectclass=group)') -SearchBase 'OU=group,OU=idm,DC=ads,DC=uni-passau,DC=de' -Properties cn,description
+        }
+
+        $results | ForEach-Object {
+            $result=$_
+            ('"' + $result.CN + '" <#' + $result.Description + '#>')
+        }
+    }
+
+    TeamMember={
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+        
+
+        if($wordToComplete -ne ''){
+            $results=Get-ADGroup $fakeBoundParameters.Team | Get-ADGroupMember | Get-ADUser -Properties mail,displayName | Where-Object {
+                $_.SamAccountName -like ('*' + $wordToComplete + '*') -or
+                $_.displayName -like ('*' + $wordToComplete + '*') -or
+                $_.mail -like ('*' + $wordToComplete + '*')
+            }
+        }
+        else{
+            $results=Get-ADGroup $fakeBoundParameters.Team | Get-ADGroupMember | Get-ADUser -Properties mail,displayName
+        }
+
+        if($results -ne $null){
+            $results | ForEach-Object {
+                $result=$_
+                ('"' + $result.SamAccountName + '" <#' + $result.displayName + '#>')
+            }
+        }
+        else{
+            '<#No Teammembers found#>'
+        }
+
+    }
+
+    DistributionGroup={
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+        if($wordToComplete -ne ''){
+                $results=Get-DistributionGroup | Where-Object {$_.DisplayName -like '*' + $wordToComplete + '*'}
+        }
+        else{
+            $results=Get-DistributionGroup
+        }
+
+        if($results -ne $null){
+            $results | ForEach-Object {
+                $result=$_
+                ('"' + $result.Name + '" <#' + $result.DisplayName + '#>')
+            }
+        }
+        else{
+            '<#No DistributionGroup found#>'
+        }
+
+
+    }
+
+}
+
+
+#Exchange Management Laden
+
+. 'C:\Program Files\Microsoft\Exchange Server\V15\bin\RemoteExchange.ps1'
+Connect-ExchangeServer -auto -ClientApplication:ManagementShell 
+
+
 
 
 Function Connect-LDAP {
@@ -113,4 +196,102 @@ Function Get-LdapSearchEntries {
 }
 
 
+
+
+Function Add-TeamMailboxPermissions {
+    
+    param(
+        $Team,
+        $FullAccess,
+        $SendAs
+    )
+
+    Begin{
+
+    }
+
+    Process{
+
+    }
+
+    End {
+        $mb=Get-Mailbox ($Team + '_Team')
+        $MbAdUser=Get-ADUser ($Team + '_Team') -Properties mail,displayName
+
+
+        #FullAccess wird in der Mailbox gesetzt
+        ForEach($user in $FullAccess){
+            $mb | Add-MailboxPermission -AccessRights 'FullAccess' -User (Get-ADUser $user).SamAccountName
+        }
+        
+        #SendAs ist ein Extended AD Right
+        ForEach($user in $SendAs){
+            Add-ADPermission -Identity $MbAdUser.DistinguishedName -User (Get-ADUser $user).SamAccountName -AccessRights ExtendedRight -ExtendedRights "Send As"
+        }
+    }
+
+
+}
+
+Function Add-TeamDistributionGroupPermissions {
+    
+    param(
+        $Team,
+        $DistributionGroup,
+        $Owner,
+        $Member,
+        $SendAs,
+        $SendOnBehalf
+    )
+
+    Begin{
+
+    }
+
+    Process{
+
+    }
+
+    End {
+        $distriGroup=Get-DistributionGroup $DistributionGroup
+        #$distriADUser=Get-ADUser $DistributionGroup.Name
+
+        #ForEach($user in $Owner){
+        if($Owner -ne $null){
+            $distriGroup | Set-DistributionGroup -ManagedBy @{Add=$Owner}
+        }
+        #}
+
+        ForEach($user in $Member){
+            $distriGroup | Add-DistributionGroupMember -Member $user
+        }
+
+        #SendAs wird im AD als Recht gesetzt
+        ForEach($user in $SendAs){
+            $distriGroup | Add-ADPermission -AccessRights ExtendedRight -ExtendedRights 'Send As' -User $user
+        }
+
+        #SendOnBehalf wird in Distribution Group als Recht gesetzt
+        ForEach($user in $SendOnBehalf){
+            $distriGroup | Set-DistributionGroup -GrantSendOnBehalfTo @{add=$user}
+            #Add-ADPermission -AccessRights ExtendedRight -ExtendedRights 'Send OnBehalf' -User $user
+        }
+
+    }
+
+}
+
+
 Register-ArgumentCompleter -CommandName Get-LdapSearchEntries -ParameterName BaseDN -ScriptBlock $Global:LdapAutocompleters.BaseDN
+
+Register-ArgumentCompleter -CommandName Add-TeamMailboxPermissions -ParameterName Team -ScriptBlock $Global:AdAutocompleters.Team
+Register-ArgumentCompleter -CommandName Add-TeamMailboxPermissions -ParameterName FullAccess -ScriptBlock $Global:AdAutocompleters.TeamMember
+Register-ArgumentCompleter -CommandName Add-TeamMailboxPermissions -ParameterName SendAs -ScriptBlock $Global:AdAutocompleters.TeamMember
+
+Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName Team -ScriptBlock $Global:AdAutocompleters.Team
+Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName DistributionGroup -ScriptBlock $Global:AdAutocompleters.DistributionGroup
+Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName Owner -ScriptBlock $Global:AdAutocompleters.TeamMember
+Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName Member -ScriptBlock $Global:AdAutocompleters.TeamMember
+Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName SendAs -ScriptBlock $Global:AdAutocompleters.TeamMember
+Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName SendOnBehalf -ScriptBlock $Global:AdAutocompleters.TeamMember
+
