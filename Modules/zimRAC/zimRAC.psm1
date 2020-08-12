@@ -25,6 +25,26 @@ $Global:LdapAutocompleters = @{
 
 
 $Global:AdAutocompleters = @{
+
+    User={
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+        $results=@()
+
+        if($wordToComplete -ne ''){
+            $results+=Get-ADUser -LDAPFilter ('(&(objectclass=user)(|(cn=' + $wordToComplete + ')(displayName=' + $wordToComplete + ')))') -SearchBase 'OU=account,OU=idm,DC=ads,DC=uni-passau,DC=de' -Properties displayName,mail
+            $results+=Get-ADUser -LDAPFilter ('(&(objectclass=user)(|(cn=*' + $wordToComplete + '*)(displayName=*' + $wordToComplete + '*)))') -SearchBase 'OU=account,OU=idm,DC=ads,DC=uni-passau,DC=de' -Properties displayName,mail
+        }
+        else{
+            $results+=Get-ADGroup -LDAPFilter ('(objectclass=user)') -SearchBase 'OU=account,OU=idm,DC=ads,DC=uni-passau,DC=de' -Properties cn,description
+        }
+
+        $results | ForEach-Object {
+            $result=$_
+            ('"' + $result.Name + '" <#' + $result.DisplayName + '#>')
+        }
+    }
+
     <#
         Sucht nach Teams (W...,S...) in unserem Active Directory 
         uni-passau.de/idm/group
@@ -95,6 +115,27 @@ $Global:AdAutocompleters = @{
             '<#No DistributionGroup found#>'
         }
 
+
+    }
+
+    Mailbox={
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+        if($wordToComplete -ne ''){
+            $results=Get-Mailbox -Filter ('displayName -like "*' + $wordToComplete + '*" -or Name -like "*' + $wordToComplete + '*"')
+        }
+        else{
+            $results=Get-Mailbox
+        }
+
+        if($results -ne $null){
+            $results | ForEach-Object {
+                $result=$_
+                ('"' + $result.Name + '" <#' + $result.DisplayName + '#>')
+            }
+        }
+        else{
+            '<#No Mailbox found#>'
+        }
 
     }
 
@@ -281,6 +322,43 @@ Function Add-TeamDistributionGroupPermissions {
 
 }
 
+Function Get-PostfixTable {
+
+    param(
+        $PostfixHost='tom.rz.uni-passau.de',
+        $PostfixTableFile='/etc/postfix/virtual'
+    )
+
+    $user = "root"
+    $pwd = "XXXXXXXXX"
+    $secure_pwd = $pwd | ConvertTo-SecureString -AsPlainText -Force
+    $creds = New-Object System.Management.Automation.PSCredential -ArgumentList $user, $secure_pwd
+
+    $session=New-SSHSession -ComputerName $PostfixHost -KeyFile "$env:USERPROFILE\Documents\ssh\ac.openssh.key" -Credential $creds
+
+    #Get-SFTPContent -SessionId $session.SessionId  -Path '/etc/postfix/virtual'
+
+    $result=Invoke-SSHCommand -SSHSession $session -Command "cat $PostfixTableFile"
+    $virtual_content=$result.Output
+
+    $i=0
+    $virtual_content -match '^[^#].*$' | ForEach-Object {
+        $line=$_
+
+        $match=$line | Select-String -Pattern '^([^\s]+)\s+([^\s]+)'
+        
+        New-Object -TypeName PSObject -Property ([ordered]@{
+            VirtualAddress=$match.Matches.Groups[1].Value
+            Recipients=$match.Matches.Groups[2].Value -split ","
+        })
+        
+        
+    }
+
+
+    $session.Disconnect()
+}
+
 
 Register-ArgumentCompleter -CommandName Get-LdapSearchEntries -ParameterName BaseDN -ScriptBlock $Global:LdapAutocompleters.BaseDN
 
@@ -295,3 +373,13 @@ Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -Pa
 Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName SendAs -ScriptBlock $Global:AdAutocompleters.TeamMember
 Register-ArgumentCompleter -CommandName Add-TeamDistributionGroupPermissions -ParameterName SendOnBehalf -ScriptBlock $Global:AdAutocompleters.TeamMember
 
+
+Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Team -ScriptBlock $Global:AdAutocompleters.Team
+Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Users -ScriptBlock $Global:AdAutocompleters.TeamMember
+
+
+Register-ArgumentCompleter -CommandName New-TeamDistributionGroup -ParameterName Owner -ScriptBlock $Global:AdAutocompleters.Mailbox
+Register-ArgumentCompleter -CommandName New-TeamDistributionGroup -ParameterName Members -ScriptBlock $Global:AdAutocompleters.Mailbox
+Register-ArgumentCompleter -CommandName New-TeamDistributionGroup -ParameterName SendOnBehalfUsers -ScriptBlock $Global:AdAutocompleters.Mailbox
+
+Register-ArgumentCompleter -CommandName idm_Set-ExchangeDutyEmail -ParameterName User -ScriptBlock $Global:AdAutocompleters.User
