@@ -1,65 +1,54 @@
-﻿<#
+﻿$global:thisModuleName="Virtual-Infrastructure-Management"
+
+
+#Laden Der VMWare Power CLI
+<#
+if ( !(Get-Module -Name VMware.VimAutomation.Core -ErrorAction SilentlyContinue) ) {
+    . "C:\Program Files (x86)\VMware\Infrastructure\PowerCLI\Scripts\Initialize-PowerCLIEnvironment.ps1"
+}
+#>
+
+#VMWare.PowerCLI sicherstellen
+#Über das Manifest geht das nicht, da es von einer anderen Gallery kommt
+Import-Module VMware.VimAutomation.Core
+$result=Get-Module VMware.VimAutomation.Core
+if($result -eq $null){
+    Write-Host -ForegroundColor Yellow "Es scheint so als wäre VMWare.PowerCLI nicht installiert."
+    Write-Host -ForegroundColor Yellow "Ich kann das Modul jetzt automatisch für deinen User installieren."
+    Write-Host -ForegroundColor Yellow "Wenn du das Modul für das gesamte System installieren willst, dann mach"
+    Write-Host -ForegroundColor Yellow "das manuell in einer 'Administrator' Powershell."
+    $input=Read-Host -Prompt 'VMWare.PowerCLI Jetzt für diesen User installieren? (Y/N)'
+
+    if($input -match '^([yY](es)*)$'){
+        Install-Module -Name VMware.PowerCLI -Scope CurrentUser -AllowClobber
+    }
+    else{
+        Write-Error("VMware.PowerCLI wird für die Verwendung von Virtual-Infrastructure-Management benötigt.`r`nBitte installieren: https://www.powershellgallery.com/packages/VMware.PowerCLI")
+    }
+
+}
+
+
+
+#'HTML-Formatting', 'MailMessageAdvanced'
+
+
+#Ermittlung wo dieses Modul liegt
+if($PSScriptRoot -eq ""){
+    $ModuleHome=$env:USERPROFILE + "\Documents\WindowsPowershell\Modules\" + $global:thisModuleName
+}
+else{
+    $ModuleHome=$PSScriptRoot
+}
+
+
+<#
 VMWare Virtual-Infrastructure-Management
 Funktionen mit denen eine VMWare Umgebung schneller, besser gemanaged werden kann
 
 
 PREREQUISITES
-*https://github.com/rgel/PowerCLi
-
-//XXX ToDo noch ein paar Dinge von mir sind Vorraussetzung, das weiß ich aber gerade nicht auswendig
-
-
-Geplante Funktionen
-
-*VIM-Export-Tags -xmlfile
-    Exportiert Tag-Kategorie und Tags einer vCenter Umgebung in ein XML-File
-    Tag Kategorien:
-        *Kategoriename
-        *Beschreibung
-        *Kardinalität (1:n, n:m)
-        *Zuweisbare Elemente (Hosts, VMs, Datenspeicher, Sonstiges, Alles)
-    Tags
-        *Tags mit zugehörigkeit zu Kategorie
-
-
-*VIM-Import-Tags -xmlfile
-    Importiert Tag-Kategorien und Tags anhand einer XML wie sie von VIM-Export-Tags generiert wurde
-
-*VIM-Get-Contact-Assignment ERLEDIGT
-	Zeigt Ansprechpartner einer VM
-
-*VIM-Sync-Contact -AD ERLEDIGT
-	Synchronisiert Ansprechpartner mit einer Active Directory OU
-
-*VIM-Export-Tags -xmlfile
-	Exportiert vorhandene Tags (ohne Assignments) in eine XML
-
-*VIM-Import-Tags -xmlfile
-	Importiert Tags aus einer XML
-
-*VIM-Set-VMValue      Also Synchronisation danach "VIM-Sync-Values-To-Description" aufrufen
-    -DateCreated      Schreibt Annotation VIM.DateCreated 
-    -DateUsedUntil    Schreibt Annotation VIM.DateUsedUntil
-
-*VIM-Sync-Values-To-Description
-    Synchronisiert Annotations (evtl auch Tags und dergleichen) als XML in die Description
-
-*VIM-Set-CreationByEvent ERLEDIGT
-	Setzt DateCreated und DatedUsed Until anhand bisher vorhandener Informationen
-
-*VIM-Get-VMEndOfLife -DaysToUsedUntil
-	Zeigt VMs die bald ablaufen (DateUsedUntil)
-
-*VIM-Get-vSwitch ERLEDIGT
-	Holt alle vSwitche einer vCenter Umgebung anhand von Tags
-
-*VIM-AddVLAN -vlan_name -vlan_id -vSwitchCategory
-	Fügt ein VLAN zu einer vSwitchCategory hinzu (siehe VIM-Get-vSwitch)
-
-*VIM-Backup-vCenter ERLEDIGT
-    Erstellt ein Backup des vCenter Hosts indem er diesen klont
-
-*VIM-Check-Tags ERLEDIGT
+*https://www.powershellgallery.com/packages/VMware.PowerCLI
 
 
 //XXX Todo
@@ -68,7 +57,7 @@ Geplante Funktionen
 
 #>
 
-$global:mail_smtp_server="192.168.100.3"
+$global:mail_smtp_server="exchange.megatech.local"
 $global:mail_sender="virtual-infrastructure-management@megatech-communication.de"
 #//XXX ToDO in Zukunft durch $global:vim_ad_admingroup E-Mail-Addressen ersetzen
 $global:mail_default_recipient="rudolf.achter@megatech-communication.de"
@@ -82,6 +71,7 @@ $global:vim_custom_attributes =     @(
                                     @{  "Name" = "VIM.CreationUser";               "TargetType" = @("VMHost", "VirtualMachine")}
                                     @{  "Name" = "VIM.ArchiveOrigDatastore";      "TargetType" = @("VMHost", "VirtualMachine")}
                                     @{  "Name" = "VIM.ArchiveDateArchived";       "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.ArchiveOrigFolderPath";       "TargetType" = @("VMHost", "VirtualMachine")}
                                     )
 <#
 $global:vim_tags
@@ -93,6 +83,8 @@ $global:vim_tags = @(
                         "Creator"
                         "Applikation"
                         "Stage"
+                        "Kunde"
+                        "Backup Plan"
                     )
 
 
@@ -110,7 +102,7 @@ $global:vim_ad_domain="MEGATECH.LOCAL"
         * Werden als Ansprechpartner und Creator Sychronisiert (VIM-Sync-Contacts)
         * Email-Addressen der AD-User werden als Kontaktaddressen verwendet
 #>
-$global:vim_ad_groups=@("VMWare-MainUsers","VMWare-Administrators")
+$global:vim_ad_groups=@("VMWare-MainUsers","VMWare-Administrators", "VMware-VmrcUsers.GG")
 
 
 <#
@@ -137,6 +129,18 @@ $global:vim_archive_user_role="Virtual Machine Deployer NoStart"
 #>
 $global:vim_backup_path="\\deslnsrvbackup\Image\VMWare"
 
+<#
+    $global:vim_focus
+    Manchmal will ich immer mit einem bestimmten Host, Datastore, Netzwerk usw arbeiten
+    Das wird in dieser Hashtable gespeichert
+#>
+$global:vim_focus =@{
+    VMHost=$null;
+    Datastore=$null;
+    Network=$null;
+    Folder=$null;
+    VM=$null;
+}
 
 <#
 Progress IDs für Write-Progess
@@ -150,6 +154,233 @@ Add-Type -AssemblyName System.Web
 
 
 #Types Ende################################################
+
+
+#Zusätzliche Module laden
+. ($ModuleHome + "\include\" + "02 Snapshot Information.ps1")
+. ($ModuleHome + "\include\" + "VMWare-vSphere-Replication.ps1")
+. ($ModuleHome + "\include\" + "VMWare_PowerCLI_Addons.ps1")
+
+
+#VIMArgumentCompleters Argument Completers allgemein für das gesamte Infrastructure Management
+Set-Variable -Name "VimArgumentCompleters" -Scope global `
+    -Description "Argument Completers für Virtual-Infrastructure-Management" `
+    -Value @{ #Alle Argument Completer Kommen in diese Hashtable
+        VMHost={#ScriptBlock <- Das ist einfach nur ein Kommentar. Ein Scriptblock wird einfach mit "{" eingeleitet
+            <#
+            $Command            Command bei dem wir gerade sind
+            $Parameter          Parameter bei dem wir gerade sind
+            $WordToComplete     Das Wort das der User gerade schreibt (als er auf TAB gedrückt hat)
+            $CommandAst         Ich weiß es jedes mal wieder nicht -> einfach testen
+            $FakeBoundParams    Hash Table von Parameter die bisher schon angegeben wurden
+                                z.B. für so was:
+                                Parameter "Datastore" wurde schon angegeben
+                                Liefere mir NUR die VMs zurück auf die auf "Datastore" liegen
+            #>                               
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            Get-VMHost -Name ("*"+$WordToComplete+"*") | ForEach-Object {('"'+$_+'"')}
+        }
+        VM={#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            Get-VM -Name ("*"+$WordToComplete+"*") | ForEach-Object {('"'+$_+'"')}
+        }
+        Datastore={#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            Get-Datastore -Name ("*"+$WordToComplete+"*") | ForEach-Object {('"'+$_+'"')}
+        }
+        TagName={#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            (Get-Tag -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
+        }
+        TagCategory={#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            (Get-TagCategory -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
+        }
+        #//XXX ToDo Der Network Script Block funktioniert besser. Der Fall EmptyString "" muss gesondert
+        #behandelt werden. Das hier noch bei den anderen ArgumentCompleters ergänzen
+        Network={#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            if($WordToComplete -eq ""){
+                (Get-Network).Name
+            }
+            else{
+                (Get-Network -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
+            }
+        }
+    }
+#    -Option Constant `
+    
+
+
+#Default Verhalten
+#Immer nur mit EINEM Server verbinden
+Set-PowerCLIConfiguration -Scope User -DefaultVIServerMode Single -Confirm:$false
+#SSL Zertifikate ignorieren
+Set-PowerCLIConfiguration -Scope User -InvalidCertificateAction Ignore -Confirm:$false
+#Customer Experience Improvement Program
+Set-PowerCLIConfiguration -Scope User -ParticipateInCeip $false -Confirm:$false
+
+function Connect-VI{
+	[CmdletBinding()]
+    param(
+        [Alias("Server")]
+		[parameter(Mandatory=$true)] $vi,
+        [string]$User="",
+        [string]$Password=""
+
+
+    )
+
+    Write-Host "Virtual Infrastructure Management Connecting to:" $vi
+
+    if($User -eq "" -and $Password -eq ""){
+	    Connect-VIServer $vi
+    }
+    else{
+        Connect-VIServer -Server $vi -User $User -Password $Password
+    }
+}
+
+
+
+Function Set-DatastoreFocus {
+    [cmdletBinding()]
+    param($Datastore)
+
+    if($Datastore.GetType().Name -eq "String"){
+        if($ds=Get-Datastore $Datastore){
+            $global:vim_focus.Datastore = $ds
+        }
+        else{
+            Write-Error "Datastore '$Datastore' nicht gefunden"
+        }
+    }
+    elseif($Datastore.GetType().Name -eq "VmfsDatastoreImpl"){
+        $global:vim_focus.Datastore=$Datastore
+    }
+    else{
+        Write-Error "Datastore Focus konnte nicht gesetzt werden. Es wurde kein gültiger Datastore übergeben. Es darf nur ein einzelnes Objekt als Focus gesetzt werden (keine Liste)"
+    }
+
+}
+
+Function Set-NetworkFocus {
+    [cmdletBinding()]
+    param($Network)
+
+    if($Network.GetType().Name -eq "String"){
+        if($nw=Get-Network $Network){
+            $global:vim_focus.Network =$nw.Name
+        }
+        else{
+            Write-Error "Netzwerk '$Network' nicht gefunden"
+        }
+    }
+    elseif($Network.GetType().Name -eq "PSCustomObject"){
+        $global:vim_focus.Network=$Network.Name
+    }
+
+}
+
+Function Set-FolderFocus {
+    [cmdletBinding()]
+    param($Folder)
+
+    if($Folder.GetType().Name -eq "String"){
+        if($fld=Get-Folder $Folder){
+            if($fld.Count -eq 1){
+                $global:vim_focus.Network=$fld
+            }
+            else{
+                Write-Error "Folder '$Folder' ist nicht eindeutig"
+            }
+        }
+        else {
+            Write-Error "Folder '$Folder' nicht gefunden"
+        }
+    }
+    elseif($Folder.GetType().Name -eq "FolderImpl"){
+        $global:vim_focus.Folder=$Folder
+    }
+    else{
+        Write-Error "Folder Focus konnte nicht gesetzt werden. Folder ist nicht eindeutig bzw wurde eine Liste übergeben?"
+    }
+}
+
+Function Set-VMFocus {
+    [cmdletBinding()]
+    param($VM)
+
+    if($VM.GetType().Name -eq "String"){
+        if($o_vm=Get-VM $VM){
+            if($o_vm.Count -eq 1){
+                $global:vim_focus.VM=$o_vm
+            }
+            else{
+                Write-Error "VM '$VM' ist nicht eindeutig"
+            }
+        }
+        else{
+            Write-Error "VM '$VM' nicht gefunden"
+        }
+    }
+    elseif($VM.GetType().Name -eq "UniversalVirtualMachineImpl"){
+        $global:vim_focus.VM=$VM
+    }
+    else{
+        Write-Error "VM Focus konnte nicht gesetzt werden. VM ist nicht eindeutig, oder wurde eine Liste übergeben?"
+    }
+}
+
+Function Set-VMHostFocus {
+    [cmdletBinding()]
+    param($VMHost)
+
+    if($VMHost.GetType().Name -eq "String"){
+        if($o_host=Get-VMHost $VMHost){
+            if($o_host.Count -eq 1){
+                $global:vim_focus.VMHost=$o_host
+            }
+            else{
+                Write-Error "VMHost '$VMHost' ist nicht eindeutig"
+            }
+        }
+        else{
+            Write-Error "VMHost '$VMHost' nicht gefunden"
+        }
+    }
+    elseif($VMHost.GetType().Name -eq "VMHostImpl"){
+        $global:vim_focus.VMHost=$VMHost
+    }
+    else{
+        Write-Error "VMHost Focus konnte nicht gesetzt werden. VMHost ist nicht eindeutig, oder wurde eine Liste übergeben?"
+    }
+}
+
+Function Set-VIMFocus {
+    [cmdletBinding()]
+    param(
+        $VMHost=$null,
+        $VM=$null,
+        $Folder=$null,
+        $Network=$null,
+        $Datastore=$null
+    )
+
+    if($VMHost -ne $null)    {Set-VMHostFocus    -VMHost $VMHost}
+    if($VM -ne $null)        {Set-VMFocus        -VM $VM}
+    if($Folder -ne $null)    {Set-FolderFocus    -Folder $Folder}
+    if($Network -ne $null)   {Set-NetworkFocus   -Network $Network}
+    if($Datastore -ne $null) {Set-DatastoreFocus -Datastore $Datastore}
+
+}
+
+Function Get-VIMFocus{
+    [cmdletBinding()]
+    param()
+
+    $global:vim_focus
+}
 
 
 Function VIM-Get-VM-without-Contact {
@@ -312,6 +543,9 @@ Function VIM-Create-CustomAttributes {
     Wenn Die CustomAttributes bereits vorhanden sind, werden sie kein zweites Mal angelegt
 .EXAMPLE
     VIM-Create-CustomAttributes
+.EXAMPLE
+    VIM-Create-CustomAttributes
+    VIM-Copy-TagStructure -oldVCenter oldvcenter.domain.local -newVCenter newvcenter.domain.local
 #>
         $a_catt = $global:vim_custom_attributes
 
@@ -356,7 +590,9 @@ Function VIM-Set-VMValue {
 
     [string]$ArchiveOrigDatastore="",
 
-    [string]$ArchiveDateArchived=""
+    [string]$ArchiveDateArchived="",
+
+    [string]$ArchiveOrigFolderPath=""
 
     )
     
@@ -388,19 +624,24 @@ Function VIM-Set-VMValue {
                 Try{
                     $s_DateCreated=Get-Date -format "yyyy-MM-dd HH:mm" $DateCreated
                     $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.DateCreated"        -Value $s_DateCreated
-                } Catch {}   
+                } Catch {
+                    Write-Host $_ -ForegroundColor Red -BackgroundColor Black
+                }   
             }
             if(-not $DateUsedUntil      -eq "") { 
                 Try{
                     $s_DateUsedUntil=Get-Date -format "yyyy-MM-dd HH:mm" $DateUsedUntil
                     $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.DateUsedUntil"      -Value $s_DateUsedUntil 
-                } Catch{}
+                } Catch{
+                    Write-Host $_ -ForegroundColor Red -BackgroundColor Black
+                }
             
             }
             if(-not $CreationMethod       -eq "") { $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.CreationMethod"       -Value $CreationMethod }
             if(-not $CreationUser         -eq "") { $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.CreationUser"         -Value $CreationUser }
             if(-not $ArchiveOrigDatastore -eq "") { $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.ArchiveOrigDatastore" -Value $ArchiveOrigDatastore}
             if(-not $ArchiveDateArchived  -eq "") { $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.ArchiveDateArchived"  -Value $ArchiveDateArchived}
+            if(-not $ArchiveOrigFolderPath -eq ""){ $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.ArchiveOrigFolderPath"  -Value $ArchiveOrigFolderPath}
             $o_vm
         }
     }
@@ -451,36 +692,75 @@ Function VIM-Get-VMValue {
     [Switch]$StageByFolder
     )
     
-    Begin {}
+    Begin {
+        $a_vm=@()
+    }
 
     Process {
         $VM | ForEach-Object {
-            
-            if($_.GetType().Name -eq "String")
+            $a_vm+=$_
+        }
+    }
+
+    End {
+        $i=0
+
+        $a_vm | ForEach-Object{
+
+            $percent=$i / $a_vm.Count * 100
+            Write-Progress -Activity "Collecting VM Information" -Status ("VM " + $i + " of " + $a_vm.Count) -PercentComplete $percent
+
+            $o_vm=$_
+
+            if($o_vm.GetType().Name -eq "String")
             {
                 $o_vm = Get-VM ($_ -replace '/','%2f')
             }
-            else
-            {
-                $o_vm = $_
-            }
 
+            #Tags zum Objekt als Noteproperty hinzufügen
             if($StageByFolder){
                 $o_vm = VIM-Check-Tags -VM $o_vm -StageByFolder 
             }
             else {
-                $o_vm = VIM-Check-Tags -VM $o_vm
+                #$o_vm = VIM-Check-Tags -VM $o_vm
+                $a_tagass=Get-TagAssignment -Entity $o_vm
+                $a_missing_tags=@()
+                ForEach($category in $global:vim_tags){
+                    #$cat=$_
+
+                    $tags=$a_tagass | ?{$_.Tag.Category.Name -eq $category}
+
+                    $a_vals=@()
+                    if($tags.Count -eq 0){
+                        $a_missing_tags+=$category
+                    }
+                    else{
+                        ForEach($tag in $tags){
+                            $a_vals+=$tag.Tag.Name
+                        }
+                    }
+                    Add-Member -InputObject $o_vm -MemberType NoteProperty -Name $category -Value $a_vals -Force
+                }
+                Add-Member -InputObject $o_vm -MemberType NoteProperty -Name missingTags -Value $a_missing_tags -Force
             }
 
-            ForEach ($att in $vim_custom_attributes){
-                Add-Member -InputObject $o_vm -MemberType NoteProperty -Name $att.Name -Value (Get-Annotation -Entity $o_vm -Name $att.Name).Value -Force
-            }
             
+            #Annotations zum Objekt als Noteproperty hinzufügen
+            #//XXX hier weiter
+            $a_annotations=Get-Annotation -Entity $o_vm
+
+            ForEach ($att in $global:vim_custom_attributes){
+                #Add-Member -InputObject $o_vm -MemberType NoteProperty -Name $att.Name -Value (Get-Annotation -Entity $o_vm -Name $att.Name).Value -Force
+                Add-Member -InputObject $o_vm -MemberType NoteProperty -Name $att.Name -Value (($a_annotations | ?{$_.Name -eq $att.Name}).Value) -Force
+            }
+
+
+            #Ausgabe
             $o_vm
+            #Zählen
+            $i++
         }
     }
-
-    End {}
         
 }
 
@@ -555,25 +835,11 @@ Function VIM-Show-VMValue {
     }
 
     End {
-        $count=($p_vm | Measure-Object).Count
-        $p_vm | ForEach-Object {
-            $o_vm = $_
-            $o_vm = VIM-Get-VMValue -VM $o_vm
-            $a_vm += $o_vm
-            
-            $i++
-            #Status Zwischenbereicht
-            $percent=$i / $count * 100
-            # + $percent + " %"
-            Write-Progress -Activity "Collecting Information" -Status ([string]$i + " VMs ") -PercentComplete $percent
-        } #//XXX Mit Grid könnte ich hier evtl eine Pipeline dran hängen, für Schnellere Ausgabe
-
-        #Formatierte Ausgabe
-        if ($Grid){
-            $a_vm | Select $columns | Out-GridView
+        if($Grid){
+            $p_vm | VIM-Get-VMValue | Select $columns | Out-GridView
         }
-        else {
-            $a_vm | Format-Table $columns -AutoSize
+        else{
+            $p_vm | VIM-Get-VMValue | Format-Table $columns -AutoSize
         }
     }
         
@@ -724,7 +990,8 @@ Function VIM-Set-CreationByEvent {
             #Nur Leere DateCreated Updaten
             if(($o_vm | Get-Annotation | ? -Property Name -EQ "VIM.DateCreated").Value -eq "" ){
 
-                $o_vm | Get-VMCreationDate | ForEach-Object {
+                #RAC: Get-VMCreationEvent ist MEINE Funktion und nicht mehr die "Raubkopierte"
+                $o_vm | Get-VMCreationEvent | ForEach-Object {
                     #$_
 
                     if($_.CreatedTime -ne "")
@@ -771,10 +1038,12 @@ Function VIM-Set-CreationByEvent {
                     }
                     Catch {
                         Write-Host $("AD-User Name: '" + $user_tag_name + "': Creator Tag wurde nicht gefunden")
+                        Write-Host $_ -ForegroundColor Red -BackgroundColor Black
                     }
                 }
                 Catch {
                     Write-Host $("VIM.CreationUser:'" + $s_VIMCreationUser + "': AD-User wurde nicht gefunden")
+                    Write-Host $_ -ForegroundColor Red -BackgroundColor Black
                 }
             }
             else {
@@ -825,6 +1094,63 @@ Function VIM-Get-Folder-ToRoot {
 }
 
 Set-Alias -Name Get-VMFolder-ToRoot -Value VIM-Get-Folder-ToRoot
+
+
+Function Get-VMFolderPath {
+<#
+.SYNOPSIS
+    Liefert die VM zurück mit dem gesamten VMFolder Path
+.DESCRIPTION
+    Dieses CMDlet verfolgt die VMFolders zurück über "Parent"
+    bis zum VMFolder "root". 
+.PARAMETER VM
+    Virtuelle Maschin die um den VMFolder Path ergänzt werden soll
+#>
+    param(
+    [Parameter(
+        Position=0, 
+        Mandatory=$true, 
+        ValueFromPipeline=$true,
+        ValueFromPipelineByPropertyName=$true)
+    ]
+    [Alias('VirtualMachine')]
+    $VM
+    )
+
+    Begin{}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm=$_
+
+            $s_path=""
+            $i=0
+
+            #Wir lösen den VMFolder Pfad der VM Rückwärts auf und setzen
+            #so einen String zusammen
+            $o_vm | VIM-Get-Folder-ToRoot | Select-Object -SkipLast 1 | ForEach-Object {
+                $o_folder=$_
+                if($i -gt 0){
+                    $s_path="/"+$s_path
+                }
+                $s_path=$o_folder.Name + $s_path
+                $i++
+            }
+
+            #$s_path
+
+            $o_vm | Add-Member -MemberType NoteProperty -Name VMFolderPath -Value $s_path
+
+            #Ausgabe
+            $o_vm
+
+        }
+    }
+
+    End{}
+
+}
+
 
 Function Get-VMRootFolder {
 <#
@@ -944,21 +1270,22 @@ Function VIM-Check-Tags {
             #KORREKTUREN ENDE
 
             #PRÜFUNG Start
+            $a_tagass=Get-TagAssignment -Entity $o_vm
             $a_missing_tags = @()
             ForEach($category in $a_needed_tag_category){
                 $tags=$false
-                $tags=$($o_vm | Get-TagAssignment -Category $category)
+                $tags=$a_tagass | ?{$_.Tag.Category.Name -eq $category}
 
                 $a_vals=@()
-                ForEach($tag in $tags){
-                    $a_vals+=$tag.Tag.Name
-                }
-                Add-Member -InputObject $o_vm -MemberType NoteProperty -Name $category -Value $a_vals -ErrorAction SilentlyContinue
-
-                if(-not $tags)
-                {
+                if($tags.Count -eq 0){
                     $a_missing_tags+=$category
                 }
+                else{
+                    ForEach($tag in $tags){
+                        $a_vals+=$tag.Tag.Name
+                    }
+                }
+                Add-Member -InputObject $o_vm -MemberType NoteProperty -Name $category -Value $a_vals -ErrorAction SilentlyContinue
             }
             Add-Member -InputObject $o_vm -MemberType NoteProperty -Name missingTags -Value $a_missing_tags -Force
             $o_vm
@@ -997,21 +1324,26 @@ Function VIM-Get-VM-MissingTags {
 
 
     if($Contact -ne ""){
-        if($Contact.GetType().Name -eq "TagImpl")
-        {
-            $vm = Get-VM -Tag $Contact 
-        }
-        else
-        {
-            $tag = Get-Tag -Category "Ansprechpartner" -Name $Contact
-            $vm = Get-VM -Tag $tag
+
+        $Contact | ForEach-Object{
+            $o_contact=$_
+
+            if($o_contact.GetType().Name -ne "String")
+            {
+                $vm = Get-VM -Tag $Contact 
+            }
+            else
+            {
+                $tag = Get-Tag -Category "Ansprechpartner" -Name $Contact
+                $vm = Get-VM -Tag $tag
+            }
         }
 
     }
     else {
         $vm = Get-VM 
     }
-    $vm | VIM-Get-VMValue -StageByFolder:$true | ?{$_.missingTags.Length -gt 0}
+    $vm | VIM-Get-VMValue | ?{$_.missingTags.Length -gt 0}
 }
 
 Function VIM-Show-VM-MissingTags {
@@ -1025,8 +1357,12 @@ Function VIM-Show-VM-MissingTags {
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/VIM-Show-VM-MissingTags
 #>
+    param (
+        $Contact = ""
+    )
 
-    VIM-Get-VM-MissingTags |
+
+    VIM-Get-VM-MissingTags -Contact $Contact |
         Format-Table @{Expression={$_.Name};Label="Name";Width=30},
             @{Expression={$_.Stage};Label="Stage";Width=15},
             @{Expression={$_.Applikation};Label="Applikation";Width=30},
@@ -1089,6 +1425,7 @@ Function VIM-Get-ContactsHash {
             }
             Catch{
                 Write-Host $("Fehler beim Hinterlegen von " + $t.Name + " Email:" + $t.Description + "")
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
             }
         }
     }
@@ -1228,6 +1565,7 @@ Function VIM-Mail-VM-MissingTags
                 }
                 Catch{
                     Write-Host $("Fehler beim Hinterlegen von " + $t.Name + " Email:" + $t.Description + "")
+                    Write-Host $_ -ForegroundColor Red -BackgroundColor Black
                 }
             }
         }
@@ -1469,6 +1807,7 @@ Function VIM-Check-EndOfLife {
             }
             Catch {
                 Write-Host "DateCreated oder DateUsedUntil nicht korrekt gesetzt: " $o_vm.Name
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
             }
 
         }
@@ -1627,7 +1966,9 @@ Function VIM-Mail-VMEndOfLife {
                    $a_uservms+=$vm
                 }
             }
-            Catch {}
+            Catch {
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
+            }
         }
         #$a_uservms
 
@@ -2078,6 +2419,7 @@ Function VIM-Get-vSwitch {
             Catch
             {
                 Write-Host $s_hostname "Hat keinen vSwitch in Kategorie:" $tag_category
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
             }
         }
     }
@@ -2170,6 +2512,7 @@ Function VIM-Clone-vCenter {
     Catch
     {
         Write-Host "Kein altes Backup von vCenter vorhanden"
+        Write-Host $_ -ForegroundColor Red -BackgroundColor Black
     }
 
     #vCenter Server Ordner
@@ -2276,12 +2619,13 @@ Function VIM-Download-VM (
                         Copy-DatastoreItem -Recurse -Item $o_diskfolder -Destination $o_subdir
                     }
                     Catch{
+                        Write-Host $_ -ForegroundColor Red -BackgroundColor Black
                     }
                 }
 
             }
             Catch{
-                Write-Error $_
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
                 #Continue
             }
 
@@ -2382,6 +2726,12 @@ Function VIM-Get-VM-OnWrongStorage {
 .SYNOPSIS
     Sucht VMs die auf der falschen Storage gehostet werden
 .DESCRIPTION
+    //XXX Todo:
+    Kategorisierung reicht nicht aus. Dachte hier an sowas
+    Category: Storage Redundancy -> (Bronze Redundancy, Silver Redundancy, Gold Redundancy)
+    Category: Storage Performance -> (Brnoze Performance, Silver Performance, Gold Performance)
+
+
     Wichtige Tags:
         Category: Stage          Tag:Live           produktive VMs primär auf LeftHand Cluster
         Category: Stage          Tag:Test           Test VMs primär auf TestESX lokales Raid5
@@ -2820,7 +3170,7 @@ Function VIM-Mail {
 </html>
 '
 
-            $thisModuleDir = Split-Path (Get-Module -ListAvailable Virtual-Infrastructure-Management).Path -parent
+            $thisModuleDir = Split-Path (Get-Module -ListAvailable Virtual-Infrastructure-Management | Select-Object -First 1).Path -parent
             #Write-Host $thisModuleDir
 
             $out= '<div class="subject"><br/><h1>' + $Subject +'</h1><br/></div>'
@@ -3133,7 +3483,11 @@ Function VIM-Get-SnapshotSummary {
     $VM=Get-VM
     $Date=Get-Date
     $thisModuleDir = Split-Path (Get-Module -ListAvailable Virtual-Infrastructure-Management).Path -parent
-    . "$thisModuleDir\resources\vCheck-vSphere\Plugins\60 VM\02 Snapshot Information.ps1"
+    . ($thisModuleDir + "\include\02 Snapshot Information.ps1")
+
+    $Snapshots = @($VM | Get-Snapshot | Where {$_.Created -lt (($Date).AddDays(-$SnapshotAge))} | Get-SnapshotSummary | Where {$_.SnapName -notmatch $excludeName -and $_.Description -notmatch $excludeDesc -and $_.Creator -notmatch $excludeCreator})
+    $Snapshots
+
 
 }
 
@@ -3480,7 +3834,7 @@ Function VIM-Show-VM-Resources(
                 @{Expression={$_.NumCpu};Label="Num_vCpu";Width=10},
                 @{Expression={[int]$_.MemoryGB};Label="MemoryGB_Provisioned";Width=10},
                 @{Expression={[int]$_.ProvisionedSpaceGB};Label="SpaceGB_Provisioned";Width=20},
-                @{Expression={[int]$_.UsedSpaceGB};Label="SpaceGB_Provisioned";Width=20}
+                @{Expression={[int]$_.UsedSpaceGB};Label="SpaceGB_Used";Width=20}
 
         $vms | Measure-Object -Property NumCPU,MemoryGB,ProvisionedSpaceGB,UsedSpaceGB -Sum | Select Property, @{Expression={[int]$_.Sum};Label="Sum"} | ft -auto
 
@@ -3715,7 +4069,9 @@ Function VIM-Archive-VM {
         [Alias('VirtualMachine')]
         $VM,
         
-        [switch]$Confirm=$false
+        [switch]$Confirm=$false,
+
+        $SoftShutdownSeconds=300
     )
 
     Begin{
@@ -3730,7 +4086,7 @@ Function VIM-Archive-VM {
 
     End {
         #1. die abgelaufenen VMs werden heruntergefahren
-        VIM-Shutdown-VM -VM $vms
+        VIM-Shutdown-VM -VM $vms -SoftShutdownSeconds $SoftShutdownSeconds
 
         $vms=Get-VM $vms
     
@@ -3770,6 +4126,10 @@ Function VIM-Archive-VM {
 
             $current_datastore=($vm | Get-Datastore) -join ";"
 
+            $current_folderpath=($vm | Get-VItemPath).Path
+
+            $vm | VIM-Set-VMValue -ArchiveOrigFolderPath $current_folderpath
+
             if($current_datastore -ne $archive_datastore.Name){
                 #Speichern auf welchem Datastore die VM war
                 $vm | VIM-Set-VMValue -ArchiveOrigDatastore $current_datastore -ArchiveDateArchived ([string](Get-Date -format "yyyy-MM-dd HH:mm"))
@@ -3778,8 +4138,16 @@ Function VIM-Archive-VM {
                 Remove-TagAssignment -TagAssignment (Get-TagAssignment -Entity $vm -Category "Stage") -Confirm:$false
                 New-TagAssignment -Tag (Get-Tag -Category "Stage" -Name "Archiv Stage") -Entity $vm
 
-                #Zu guter letzt die VM umziehen
-                $vm | Move-VM -Datastore (Get-Datastore $archive_datastore) -DiskStorageFormat Thin -RunAsync -Confirm:$Confirm
+                <#
+                Zu guter letzt die VM umziehen
+                Es wird umgezogen
+                    - Datastore
+                    - InventoryLocation
+                    - DiskStorageFormat wird auf Thin geändert
+
+                #>
+                $archiv_folder=Get-Folder -Id (Get-Item "vi:\megatech.local\vm\Archiv").Id
+                $vm | Move-VM -Datastore (Get-Datastore $archive_datastore) -DiskStorageFormat Thin -InventoryLocation $archiv_folder -RunAsync -Confirm:$Confirm
             }
         }
 
@@ -3791,7 +4159,115 @@ Function VIM-Archive-VM {
     }
 }
 
+function Get-VItemPath{
+<#
+.SYNOPSIS
+	Returns the folderpath for a folder
+.DESCRIPTION
+	The function will return the complete folderpath for
+	a given folder, optionally with the "hidden" folders
+	included. The function also indicats if it is a "blue"
+	or "yellow" folder.
+.NOTES
+	Authors:	Luc Dekens
+.PARAMETER Folder
+	On or more folders
+.PARAMETER ShowHidden
+	Switch to specify if "hidden" folders should be included
+	in the returned path. The default is $false.
+.EXAMPLE
+	PS> Get-FolderPath -Folder (Get-Folder -Name "MyFolder")
+.EXAMPLE
+	PS> Get-Folder | Get-FolderPath -ShowHidden:$true
+.LINK
+    http://www.lucd.info/2010/10/21/get-the-folderpath/
+#>
+ 
+	param(
+	[parameter(valuefrompipeline = $true,
+	position = 0,
+	HelpMessage = "Enter a folder")]
+	$Item,
+	[switch]$ShowHidden = $false
+	)
+ 
+	begin{
+		$excludedNames = @("Datacenters")#,"vm","host"
+	}
+ 
+	process{
+		$Item | %{
+			$fld = $_.Extensiondata
+			#$fldType = "yellow"
+            
+            #Write-Host("ChildType: " + $fld.ChildType)
+            <#
+			if($fld.ChildType -contains "VirtualMachine"){
+				$fldType = "blue"
+			}
+            #>
+			#$path = $fld.Name
 
+			while($fld.Parent){
+				$fld = Get-View $fld.Parent
+                
+                #VM selbst nicht in den Pfad aufnehmen
+
+				if((!$ShowHidden -and $excludedNames -notcontains $fld.Name) -or $ShowHidden){
+					$path = $fld.Name + "\" + $path
+				}
+                #$path = $fld.Name + "\" + $path
+
+			}
+            $path='vi:\'+$path
+
+
+			$row = "" | Select Name,Path
+			$row.Name = $_.Name
+			$row.Path = $path
+			#$row.Type = $fldType
+			$row
+		}
+	}
+}
+
+<#
+.SYNOPSIS
+    Korrigiert die Situation wenn VMs mit einer alten Version von VIM-Archive-VM archiviert wurden
+.DESCRITPTION
+    Dokumentiert nur den VIM.ArchiveOrigFolderPath und verschiebt die VM ins Archiv Folder
+#>
+Function Move-VMtoArchiveCorrection {
+    param(
+        [Parameter(
+            Position=0, 
+            Mandatory=$true, 
+            ValueFromPipeline=$true,
+            ValueFromPipelineByPropertyName=$true)
+        ]
+        [Alias('VirtualMachine')]
+        $VM
+    )
+
+    Begin{
+        $archiv_folder=Get-Folder -Id (Get-Item "vi:\megatech.local\vm\Archiv").Id
+    }
+
+    Process{
+        $VM | ForEach-Object{
+            $o_vm=$_
+
+            $current_folderpath=($o_vm | Get-VItemPath).Path
+            $o_vm | VIM-Set-VMValue -ArchiveOrigFolderPath $current_folderpath | Out-Null
+            $o_vm | Move-VM -InventoryLocation $archiv_folder
+
+        }
+    
+    }
+
+    End{}
+
+}
 
 Function VIM-Mail-VM-AffectedToContacts{
     param(
@@ -3924,8 +4400,24 @@ Function VIM-Mail-VM-Archived{
 .DESCRIPTION
     Macht im Grunde das Umgekehrte von VIM-Archive-VM
     Genauere Beschreibung folgt noch
+.PARAMETER VM
+    (Get-VM) Objekt Virtuelle Maschine die wiederhergestellt wird
+.PARAMETER ToStorage
+    Datastore (Get-Datastore) / Storage Objekt auf das wiedhergestellt wird
+.PARAMETER ToHost
+    VMHost Objekt (Get-VMHost) zu dem wiederhergestellt wird
+.PARAMETER ToFolder
+    VMFolder (Get-Folder) Objekt zu dem wiederhergestellt wird
+.PARAMETER StartImmediately
+    Switch. Wenn gesetzt wird die VM unmittelbar nach der wiederherstellung gestartet
+.PARAMETER Confirm
+    Wird scheinbar in diesem Cmdlet nicht verwendet
 .EXAMPLE
     Get-VM deslnvmowncl | VIM-UnArchive-VM
+.EXAMPLE
+    Get-VM "*.viblab.local" | ?{($_ | Get-Datastore).Name -contains "Netgear_LUN_Archive"} | VIM-Get-VMValue | ?{(Get-Date $_."VIM.ArchiveDateArchived") -gt (Get-Date "2019-11-17 00:00")} | Select-Object -First 1 
+.EXAMPLE
+    Get-VM "deslnonexatt03" | VIM-UnArchive-VM -ToStage Test -ToStorage (Get-Datastore "NFS_testesxnfs") -ToFolder (Get-Folder -Id (Get-Item vi:\megatech.local\vm\Test\Server\).Id)
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/VIM-UnArchive-VM
 #>
@@ -3938,18 +4430,45 @@ Function VIM-UnArchive-VM{
             ValueFromPipelineByPropertyName=$true)
         ]
         [Alias('VirtualMachine')]
+		[ArgumentCompleter(
+			{
+                param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+                Get-VM -Name ("*"+$WordToComplete+"*") -Tag (Get-Tag -Category "Stage" -Name "Archiv Stage")
+            })
+        ]
         $VM,
         [Parameter(Mandatory=$true)][ValidateSet("Test","Live","Development")]$ToStage,
         <#
             Zu dieser Storage wird die VM wiederhergestellt (Name, wie in der vCenter Speicher Ansicht)
             Wird $ToStorage nicht angegeben, wird die zuvor gespeicherte Storage verwendet
+            #//XXX Hier mach ein Argument Completer Sinn
+
+		[ArgumentCompleter(
+			{
+                param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            //XXX hier weiter
         #>
+		[ArgumentCompleter(
+			{
+                param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+                Get-Datastore -Name ("*"+$WordToComplete+"*") | Sort-Object -Property "FreeSpaceGB" -Descending | ForEach-Object {
+                    $s_storage_info="FreeSpace: " + [int]$_.FreeSpaceGB + "GB" #+  "Capacity: " + [int]$_.CapacityGB + "GB"
+                    if($vm=Get-VM $FakeBoundParams.VM){
+                        $s_storage_info+=" VMProvisionedSize: "+[string]([int]$vm.ProvisionedSpaceGB) + "GB"
+                    }
+                    [string]('"' + $_.Name + '"' + " <# " + $s_storage_info + " #>")
+                }
+            })
+        ]
         [Parameter(Mandatory=$false)]$ToStorage="",
         
         <#
             Auf diesem ESX-Host wird die VM dann wieder gestartet
         #>
+        #Argument Completer wird am ende dieser Funktion registriert
         [Parameter(Mandatory=$false)]$ToHost="",
+
+        [Parameter(Mandatory=$false)]$ToFolder="",
 
         [switch]$StartImmediately=$false,
 
@@ -3975,11 +4494,9 @@ Function VIM-UnArchive-VM{
 
 
         $vms | ForEach-Object {
-            $vm=$_
-
-
 
             Try {
+                $vm=Get-VM $_
 
                 $vmvals=$vm | VIM-Get-VMValue -ErrorAction Stop
 
@@ -3997,7 +4514,23 @@ Function VIM-UnArchive-VM{
                     $TargetHost = Get-VMHost $ToHost -ErrorAction Stop
                 }
 
-                $vm=Move-VM -VM $vm -Destination $TargetHost -Datastore $TargetStorage -ErrorAction Stop
+                if($ToFolder -eq ""){
+
+                    #Target Folder ermitteln
+                    $TargetFolder=Get-Folder -Id (Get-Item $vm."VIM.ArchiveOrigFolderPath").Id
+
+                    if($TargetFolder.Count -ne 1){
+                        Write-Error "TargetFolder ist nicht eindeutig"
+                    }
+
+                    #Der eigentliche Move der VM
+                    $vm=Move-VM -VM $vm -Destination $TargetHost -Datastore $TargetStorage -InventoryLocation $TargetFolder -ErrorAction Stop
+                }
+                else{
+                    $vm=Move-VM -VM $vm -Destination $TargetHost -Datastore $TargetStorage -InventoryLocation $ToFolder -ErrorAction Stop
+                }
+
+                
 
                 Start-Sleep -Seconds 5
 
@@ -4014,26 +4547,30 @@ Function VIM-UnArchive-VM{
                     #Deswegen noch der genauere Vergleich mit "Where-Object"
                     Get-VIPermission -Entity $vm -Principal $acc | 
                         Where-Object { $_.Entity.Uid -eq $vm.Uid } |
-                            Remove-VIPermission -Confirm:$false
+                            Remove-VIPermission -Confirm:$false | Out-Null
                 }
 
                 ForEach ($acc in $user_acc){
                     Get-VIPermission -Entity $vm -Principal $acc | 
                         Where-Object { $_.Entity.Uid -eq $vm.Uid } |
-                            Remove-VIPermission -Confirm:$false
+                            Remove-VIPermission -Confirm:$false | Out-Null
                 }
 
                 #Die Stage auf zum "Ziel" wechseln
-                Remove-TagAssignment -TagAssignment (Get-TagAssignment -Entity $vm -Category "Stage") -Confirm:$false
-                New-TagAssignment -Tag (Get-Tag -Category "Stage" -Name $ToStage) -Entity $vm
+                Remove-TagAssignment -TagAssignment (Get-TagAssignment -Entity $vm -Category "Stage") -Confirm:$false | Out-Null
+                New-TagAssignment -Tag (Get-Tag -Category "Stage" -Name $ToStage) -Entity $vm | Out-Null
 
                 if($StartImmediately){
                     $vm = Get-VM $vm
-                    Start-VM $vm
+                    Start-VM $vm | Out-Null
                 }
+                #VM zurück geben
+                Get-VM $vm
             }
             Catch{
+                #Error Handling -> sollte man öfter so machen
                 Write-Error "VM konnte nicht erfolgreich UnArchiviert werden"
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
             }
 
 
@@ -4041,6 +4578,8 @@ Function VIM-UnArchive-VM{
     }
 
 }
+
+Register-ArgumentCompleter -CommandName VIM-UnArchive-VM -ParameterName ToHost -ScriptBlock $global:VimArgumentCompleters.VMHost
 
 Function _Get-Shapes {
     param(
@@ -4571,6 +5110,15 @@ Function VIM-Show-ResourceReservation {
 <#
 .SYNOPSIS
     Gibt VMs zurück die aus unerklärlichen Gründen nicht gestartet werden können
+.DESCRIPTION
+    Bei ESX-Server Abstürzen, Storage Problemen und dergleichen, kann es vorkommen, dass die
+    vCenter Datenbank nicht mehr den richtigen Status über die Startbarkeit von virtuellen Maschinen
+    wiedergibt. Dadurch wird der Start der virtuellen Maschine verhindert obwohl diese wieder voll
+    Einsatzbereit ist.
+    In vielen Fällen ist es dann notwendig diese VM komplett aus dem vCenter Bestand zu entfernen und
+    wieder neu zu registrieren. Es gibt zwar Workarounds derartige Probleme direkt in der vCenter Postgres
+    Datenbank zu beheben. Derartige Arbeiten könnten aber zu inkosistenzen in der vCenter Datenbank führen.
+    Daher ist es empfehlenswerter eine Lösung über die vCenter API anzustreben
 .EXAMPLE
     VIM-Get-VM-NotStartable
 .EXAMPLE
@@ -4581,6 +5129,86 @@ Function VIM-Show-ResourceReservation {
 #>
 Function VIM-Get-VM-NotStartable {
     Get-VM | ? { $_.ExtensionData.DisabledMethod -contains "PowerOnVM_Task" -and $_.PowerState -eq "PoweredOff"}
+}
+
+<#
+.SYNOPSIS
+    Exportiert die Metadaten einer virtuellen Maschine in eine XML-Datei (CliXML)
+.DESCRIPTION
+    Mit dieser Funktion können die Metadaten einer virtuellen Maschine gesichert werden.
+    Im Falle einer Fehlfunktion der vCenter Datenbank können diese Daten dann (komplett oder teilweise) mittels
+    Powershell wieder importiert werden.
+    Im Einfachsten Fall wird die Virtuelle Maschine dann einfach mit folgendem Befehl wieder registriert
+
+    VIM-ReRegister-VM -File (Get-Item *.ReRegister.Save.xml)
+
+#>
+Function Export-VMCliXML {
+    [CmdletBinding()]
+    param(  
+    [Parameter(
+        Position=0, 
+        Mandatory=$true, 
+        ValueFromPipeline=$true)
+    ]
+    [Alias('VirtualMachine')]
+    [Alias('File')]
+    $VM,
+
+    $ToDir="."
+    )
+
+        Begin{}
+
+        Process{
+
+            $VM | ForEach-Object {
+                $o_vm=Get-VM $_
+
+                #Notwendige Daten der VM merken
+                $vm_name=$o_vm.Name
+                $vm_host=$o_vm.VMHost.Name
+                $vmx_path=$o_vm.ExtensionData.Config.Files.VmPathName
+                
+                $vm_folder=$o_vm.Folder
+
+
+                Write-Host ("Getting information from VM: '"+$vm_name + "' with VMX path: '" + $vmx_path + "' on Host: '" + $vm_host + "'")
+                
+                #Ich speichere die VM daten, falls das ReRegister schief läuft
+                $h_vmdata=@{
+                    vm=$o_vm
+                    vm_name=$vm_name
+                    vm_host=$vm_host
+                    vmx_path=$vmx_path
+                    vm_folder=$vm_folder
+                    annotations=@()
+                    tagass=@()
+                    vipermission=@()
+                }
+                
+                $o_annotations = Get-Annotation -Entity $o_vm
+                $o_tagass = Get-TagAssignment -Entity $o_vm
+                $o_vipermission = Get-VIPermission -Entity $o_vm | Where-Object {$_.EntityID -eq $o_vm.Id}
+
+                $h_vmdata.annotations = $o_annotations
+                $h_vmdata.tagass = $o_tagass
+                $h_vmdata.vipermission = $o_vipermission
+
+                If(-not ($o_target_dir=Get-Item $ToDir)){
+                    $o_target_dir=New-Item -Path $ToDir -ItemType Directory
+                }
+
+                $save_path=($ToDir + "\" + ($o_vm.Name -replace "[\\\/]","_")+".ReRegister.Save.xml")
+                $h_vmdata | Export-Clixml -Path $save_path
+                Write-Host("VM Definition was saved in: $save_path")
+
+                $h_vmdata
+            }
+
+        }
+
+        End{}
 }
 
 
@@ -4620,6 +5248,19 @@ Function VIM-ReRegister-VM{
 .EXAMPLE
     #DAS HIER IST MIT VORSICHT ZU GENIESSEN!!!
     VIM-Get-VM-NotStartable | VIM-ReRegister-VM
+.EXAMPLE
+    VIM-ReRegister-VM -VM (Get-Item deslnvmvpnquarz.ReRegister.Save.xml) -NewVMHost deslnsrvesx01.megatech.local
+    #Das hier registriert eine VM von einem "Backup File" auf den Alternativen Cluster Host deslnsrvesx01.megatech.local
+.PARAMETER VM
+    "VM" oder "File"
+    gib hier die neu zu registrierende VM an. Statt einer VM kannst du her auch ein File angeben. Passende Files sind:
+    *.ReRegister.Save.xml   <- Das sind VM Metadaten Files die vorher mit Export-VMCliXML exportiert wurden
+.PARAMETER NewVMHost
+    Sollte der Ursprüngliche ESX-Server nicht mehr funktionieren, 
+    kannst du hiermit versuchen die VM auf einem anderen ESX zu registrieren.
+    Name des VMHost als String
+.PARAMETER SaveOnly
+    Exportiert nur eine XML Datei um alle Informationen zu haben
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/VIM-ReRegister-VM
 .LINK
@@ -4639,7 +5280,10 @@ Function VIM-ReRegister-VM{
         ValueFromPipeline=$true)
     ]
     [Alias('VirtualMachine')]
-    $VM
+    [Alias('File')]
+    $VM,
+    [string]$NewVMHost="",
+    [switch]$SaveOnly
     )
 
     Begin {}
@@ -4648,37 +5292,99 @@ Function VIM-ReRegister-VM{
         $VM | ForEach-Object {
             $o_vm = $_
 
-            #Notwendige Daten der VM merken
-            $vm_name=$o_vm.Name
-            $vm_host=$o_vm.VMHost.Name
-            $vmx_path=$o_vm.ExtensionData.Config.Files.VmPathName
+            #Wenn Wir eine Virtuelle Maschine haben dann speichern wir diese und verarbeiten diese weiter
+            if($o_vm.GetType().Name -eq "UniversalVirtualMachineImpl"){
 
-            $vm_folder=$o_vm.Folder
+                #Export-VMCliXML
+                $h_vmdata=Export-VMCliXML -VM $o_vm
+                $vm_name=$h_vmdata.vm_name
+                $vm_host=$h_vmdata.vm_host
+                $vmx_path=$h_vmdata.vmx_path
+                $vm_folder=Get-Folder -Id $h_vmdata.vm_folder.Uid
+                $o_annotations=$h_vmdata.annotations
+                $o_tagass=$h_vmdata.tagass
+                $o_vipermission=$h_vmdata.vipermission
 
 
-            Write-Host ("ReRegister VM: '"+$vm_name + "' with VMX path: '" + $vmx_path + "' on Host: '" + $vm_host + "'")
+                if($SaveOnly){
+                    Write-Host("I do not Remove " +$o_vm.Name + " just Saving.")
+                    return
+                }
+                Write-Host("Removing "+$o_vm.Name)
 
-            $o_annotations = Get-Annotation -Entity $o_vm
-            $o_tagass = Get-TagAssignment -Entity $o_vm
+                if($o_vm.PowerState -eq "PoweredOn"){
+                    Write-Host($o_vm.Name + "is Running. Trying Softshutdown. Then HardReset")
+                    $o_vm | VIM-Shutdown-VM -SoftShutdownSeconds 60
+                    $o_vm=Get-VM $o_vm
+                }
 
+                $remove_result=$o_vm | Remove-VM -Confirm:$false
+            }
+            #Wiederherstellen von DefinitionsDatei
+            elseif($VM.GetType().Name -eq "FileInfo"){
+                Write-Host("Using ReRegister VM Info from: "+$VM.FullName)
+                Try{
+                    $h_vmdata=Import-Clixml -Path $VM.FullName
+                    
+                    $vm_name=$h_vmdata.vm_name
+                    $vm_host=$h_vmdata.vm_host
+                    $vmx_path=$h_vmdata.vmx_path
+                    $vm_folder=Get-Folder -Id $h_vmdata.vm_folder.Uid
+                    $o_annotations=$h_vmdata.annotations
+                    $o_tagass=$h_vmdata.tagass
+                    $o_vipermission=$h_vmdata.vipermission
+                                        
+                }
+                Catch{
+                    Write-Error("*.ReRegister.Save.xml File expected. Error in working File Data.")
+                    Write-Host $_ -ForegroundColor Red -BackgroundColor Black
+                }
+            }
+            else{
+                Write-Error("No Valid VM or File detected")
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
+                return
+            }
 
             #VM neu registrieren
-            $remove_result=$o_vm | Remove-VM -Confirm:$false
-            $new_vm=New-VM -Name $vm_name -VMHost $vm_host -VMFilePath $vmx_path -Location $vm_folder
+            Write-Host ("ReRegister VM: '"+$vm_name + "' with VMX path: '" + $vmx_path + "' on Host: '" + $vm_host + "'")
+            Try{
+                #Auf anderen Host registrieren wenn angegeben
+                if($NewVMHost -ne ""){
+                    $vm_host=$NewVMHost
+                }
+                $new_vm=New-VM -Name $vm_name -VMHost $vm_host -VMFilePath $vmx_path -Location $vm_folder
+                #Alle Annotations und Tags der VM wieder setzen
+                ForEach($annotation in $o_annotations)
+                {
+                    $temp=$new_vm | Set-Annotation -CustomAttribute $annotation.Name -Value $annotation.Value
+                }
 
+                ForEach($tagass in $o_tagass){
+                    $temp=New-TagAssignment -Entity $new_vm -Tag (Get-Tag -Name $tagass.Tag.Name -Category $tagass.Tag.Category)
+                }
 
-            #Alle Annotations und Tags der VM wieder setzen
-            ForEach($annotation in $o_annotations)
-            {
-                   $temp=$new_vm | Set-Annotation -CustomAttribute $annotation.Name -Value $annotation.Value
+                ForEach($vipermission in $o_vipermission ){
+
+                    if($vipermission.IsGroup){
+                        $principal=Get-VIAccount -Group $vipermission.Principal
+                    }
+                    else {
+                        $principal=Get-VIAccount -User $vipermission.Principal
+                    }
+
+                    $temp=New-VIPermission -Entity $new_vm `
+                        -Principal $principal `
+                        -Role (Get-VIRole -Name $vipermission.Role)
+                }
+
+                #VM zurück Geben
+                Get-VM $new_vm.Name
             }
-
-            ForEach($tagass in $o_tagass){
-                $temp=New-TagAssignment -Entity $new_vm -Tag $tagass.Tag
+            Catch{
+                Write-Error("Error ReRegistering: "+ $vm_name)
+                Write-Host $_ -ForegroundColor Red -BackgroundColor Black
             }
-
-            #VM zurück Geben
-            Get-VM $new_vm.Name
 
         }
     }
@@ -4722,18 +5428,29 @@ Function VIM-Get-VM-OldArchived {
     }
 }
 
-$global:ovftool="C:\Program Files\VMware\VMware OVF Tool\ovftool.exe"
+
+if($IsLinux){
+    $global:ovftool=. which ovftool
+}
+else{
+    $global:ovftool="C:\Program Files\VMware\VMware OVF Tool\ovftool.exe"
+}
 
 
 <#
 .SYNOPSIS
     Exportiert VMs in ein Verzeichnis im OVF Format.
+
+    ACHTUNG FUNKTIONIERT NUR MIT vCenter
 .DESCRIPTION
     Exportiert VMs in ein Verzeichnis im OVF Format. Es werden Zusatzinformationen
     in .cli.xml exportiert um eine Übernahme von Hardware IDs (BIOS Seriennummer,
     Mac-Addressen) sicherstellen zu können.
     Der Export mit OVFTool über dieses Commandlet scheint besser zu funtionieren als die
     Export-OVA Funktion in vSphere Client.
+
+    Wenn eine VM bereits läuft, wird sie temporär auf dem vCenter geklont und dann heruntergeladen
+    Verwende -TempCloneToDatastore um den Datastore zu bestimmen auf den die VM temporär geklont wird
     
 .PARAMETER VM
     Kann sein
@@ -4751,13 +5468,22 @@ $VMs=@(
     ACHTUNG: Diese Option verringert die Portabilität der VM
 .PARAMETER ExportDestination
     Hier werden die OVF Folder gespeichert
+.PARAMETER TempCloneToDatastore
+    Wenn die VM "PoweredOn" ist kann sie normalerweise nicht exportiert werden.
+    Soll Sie dennoch exportiert werden kann sie hiermit Temporär auf einen
+    Datastore geklont werden bevor sie exportiert wird
 .PARAMETER ovftool
     Pfad zur ovftool.exe falls du eine andere Version verwenden willst
 .PARAMETER openssl
     Openssl wird benötigt um eine Manifest Datei zu erstellen. Noch nicht vollständig implementiert
     Es geht auch ohne Manifest
+.LINK
+    https://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/Export-VM-toOVFDir
+.LINK
+    https://www.vmware.com/support/developer/ovf/
 #>
 Function Export-VM-toOVFDir {
+    [CmdletBinding()]
     param(
         [Parameter(
             Position=0, 
@@ -4768,6 +5494,7 @@ Function Export-VM-toOVFDir {
         $VM,
         [switch]$WithSameHardwareIDs,
         $ExportDestination=".",
+        $TempCloneToDatastore="",
         $ovftool=$global:ovftool,
         $openssl=$PSScriptRoot + "\bin\openssl.exe"
     )
@@ -4793,6 +5520,7 @@ Function Export-VM-toOVFDir {
 
         $a_vm | ForEach-Object {
             $vmparam=$_
+            $s_TempVMName=""
 
             #Wenn ich Geklonte VMs kopieren will, aber die Hardware IDs von der Original VM haben möchte
             if($vmparam.GetType().Name -eq "Hashtable"){
@@ -4800,10 +5528,24 @@ Function Export-VM-toOVFDir {
                 $o_hwvm=Get-VM $vmparam.HWFrom
             }
             else{
-                #Wenn der Parameter ein String oder ein VM Objek ist, geht das hier beides
+                #Wenn der Parameter ein String oder ein VM Objekt ist, geht das hier beides
                 $o_vm=Get-VM $vmparam
                 $o_hwvm=Get-VM $vmparam
             }
+
+            #Wenn die zu klonende VM läuft und ich die temporär klonen kann
+            if($o_vm.PowerState -eq "PoweredOn" -and $TempCloneToDatastore -ne ""){
+                #Die Original VM ist die von der ich die Hardware haben will
+                $o_hwvm=$o_vm
+
+                $s_TempVMName=($o_hwvm.Name + "_" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss"))
+                $o_vm=New-VM -VM $o_hwvm -Name $s_TempVMName -VMHost $o_hwvm.VMHost -Datastore $TempCloneToDatastore -Location $o_hwvm.Folder
+
+                if(-not $WithSameHardwareIDs){
+                    $o_hwvm=$o_vm
+                }
+            }
+
 
             $percent=$i / $a_vm.Count * 100
 
@@ -4813,6 +5555,7 @@ Function Export-VM-toOVFDir {
 
             $session = Get-View -Id SessionManager
             $ticket = $session.AcquireCloneTicket()
+            $SourceVCenter=$global:DefaultVIServer.Name
 
             if($WithSameHardwareIDs){
                 $export_flags="--exportFlags=mac,uuid"
@@ -4822,7 +5565,7 @@ Function Export-VM-toOVFDir {
             }
 
             #Das ist der eigentliche Export Befehl
-            . $ovftool $export_flags --overwrite --acceptAllEulas --skipManifestGeneration --noSSLVerify ("--I:sourceSessionTicket="+$ticket) ("vi://" + $SourceVCenter + "?moref=vim.VirtualMachine:" + $o_vm.ExtensionData.MoRef.Value) (Get-Item $ExportDestination).FullName | ForEach-Object {
+            . $ovftool $export_flags --overwrite --acceptAllEulas --skipManifestGeneration --noSSLVerify ("--I:sourceSessionTicket="+$ticket) ("vi://" + $SourceVCenter + "/" +"?moref=vim.VirtualMachine:" + $o_vm.ExtensionData.MoRef.Value) (Get-Item $ExportDestination).FullName | ForEach-Object {
                 #Das hier ist nur Ausgabe für den User
                 $line=$_
                 $match=$line | Select-String -Pattern 'Progress: ([0-9]+)%'
@@ -4892,12 +5635,231 @@ Function Export-VM-toOVFDir {
 
             }
 
+            #Wenn ich einen temporären Klon angelegt habe, dann diesen wieder löschen
+            if($s_TempVMName -ne ""){
+                $remove_task=Get-VM $s_TempVMName | Remove-VM -DeletePermanently -Confirm:$false -RunAsync 
+            }
+
             $out_dir=Get-Item ($ExportDestination + "\" + $o_vm.Name)
             $out_dir
 
             $i++
        }    
     }
+}
+
+
+Function Get-OVAProgress {
+    [CmdletBinding()]
+    param(
+        [Parameter(
+            Position=0, 
+            ValueFromPipeline=$true,
+            Mandatory=$true)
+        ]
+        $OutLine,
+        $Source="",
+        $Target=""
+    )
+    Begin{
+        $start_time=Get-Date
+    }
+
+    Process{
+
+        $OutLine | ForEach-Object {
+            #Das hier ist nur Ausgabe für den User
+            $line=$_
+            $match=$line | Select-String -Pattern 'Progress: ([0-9]+)%'
+            if($line -eq ""){
+                $line="..."
+            }
+
+            if($match){
+                $vm_percent=$match.Matches.Groups[1].Value
+            }
+            else{
+                $vm_percent=0
+                Write-Host $line
+            }
+            $end_time=Get-Date
+            $time_running=New-TimeSpan -Start $start_time -End $end_time
+            Write-Progress -Id 20 -Activity ("OVA from $Source to $Target") -Status ((Get-Date -Format "yyyy-MM-dd HH:mm:ss" $end_time)+" : " + $line + " - Time Running: {0:c}" -f $time_running) -PercentComplete $vm_percent
+        }
+    }
+
+    End{
+
+    }
+
+
+}
+
+
+Function Publish-OVA {
+<#
+.EXAMPLE
+    Get-VM utility-s2.site2* | Publish-OVA -Name "ubuntu_OpenSource_UtilityServer_v2.1_2019-03-14"
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(
+            Position=0, 
+            ValueFromPipeline=$true,
+            Mandatory=$true)
+        ]
+        [Alias('VirtualMachine')]
+        $VM,
+        [Parameter(Mandatory=$true)]
+        $Name,
+        $TargetDir=".",
+        $TempDir=((Get-Item $env:Temp).FullName)+"\Publish-OVA",
+        $TempCloneToDatastore="",
+        [switch]$KeepTempDir,
+        $ovftool=$global:ovftool,
+        $openssl=$PSScriptRoot + "\bin\openssl.exe"
+    )
+
+    
+    if(-not (Test-Path -Path $TempDir)){
+        $o_tempdir=mkdir $TempDir
+    }
+    else{
+        $o_tempdir=Get-Item $TempDir
+    }
+
+    $temp_ovfdir=Export-VM-toOVFDir -VM $VM -ExportDestination $TempDir -TempCloneToDatastore $TempCloneToDatastore -ovftool $ovftool -openssl $openssl
+
+    $temp_ovf_file=Get-Item($temp_ovfdir.FullName+"\"+$temp_ovfdir.BaseName+".ovf")
+    [xml]$ovf_xml=Get-Content $temp_ovf_file
+
+    $nsmgr = New-Object System.Xml.XmlNamespaceManager $ovf_xml.NameTable
+    #"xmlns"
+    $nsmgr.AddNamespace("x",$ovf_xml.Envelope.xmlns)
+    foreach($ns_name in @("cim","ovf","rasd","vmw","vssd","xsi")){
+        #Write-Host($ns_name + " : " + $ovf_xml.Envelope.$ns_name)
+        $nsmgr.AddNamespace($ns_name,$ovf_xml.Envelope.$ns_name)
+    }
+
+    #ProductSection mit ovf:required="false" ergänzen
+
+    $attr=$ovf_xml.CreateAttribute("ovf","required",$nsmgr.LookupNamespace("ovf"))
+    $attr.Value="false"
+
+    $ovf_xml.SelectSingleNode("//x:Envelope//x:VirtualSystem//x:ProductSection",$nsmgr).Attributes.SetNamedItem($attr)
+
+    #ExtraConfig entfernen
+    #$node=$ovf_xml.SelectNodes("//x:Envelope//x:VirtualSystem",$nsmgr)
+    while($node=$ovf_xml.SelectSingleNode("//x:Envelope//x:VirtualSystem//x:VirtualHardwareSection//vmw:ExtraConfig",$nsmgr)){
+        $ovf_xml.Envelope.VirtualSystem.VirtualHardwareSection.RemoveChild($node)
+    }
+    $ovf_noExtraConfig=($temp_ovfdir.FullName+"\"+$temp_ovfdir.BaseName+"_noExtraConfig_" +".ovf")
+    $ovf_xml.Save($ovf_noExtraConfig)
+    
+    #ProductSection (mit Properties) entfernen
+    $node=$ovf_xml.SelectSingleNode("//x:Envelope//x:VirtualSystem//x:ProductSection",$nsmgr)
+    $ovf_xml.Envelope.VirtualSystem.RemoveChild($node)
+
+    $ovf_noProps=($temp_ovfdir.FullName+"\"+$temp_ovfdir.BaseName+"_noOvaProperties_" +".ovf")
+    $ovf_xml.Save($ovf_noProps)
+
+    #Erstellen der eigentlichen Ziel Archive
+    #Zwecks Abwärtskompatibilität zu vSphere 6.0 ist sha1 unser Manifest Algorhytmus
+
+    . $ovftool --shaAlgorithm=sha1 --overwrite $ovf_noExtraConfig ($TargetDir + "\" + $Name + "_WITH_OvaProperties"+".ova") | Get-OVAProgress -Source $ovf_noExtraConfig -Target ((Get-Item $TargetDir).FullName + "\" + $Name + "_WITH_OvaProperties"+".ova")
+    . $ovftool --shaAlgorithm=sha1 --overwrite $ovf_noProps ($TargetDir + "\" + $Name + "_NO_OvaProperties"+".ova") | Get-OVAProgress -Source $ovf_noProps -Target ((Get-Item $TargetDir).FullName + "\" + $Name + "_NO_OvaProperties"+".ova")
+
+    if(-not $KeepTempDir){
+        $temp_ovfdir | Remove-Item -Recurse -Confirm:$false
+    }
+
+}
+
+<#
+.SYNOPSIS
+    Exportiert VMs in ein Verzeichnis im OVA Format.
+
+    Soll in Zukunft mit Standalone ESX-Server und auch mit vCenter Funktionieren
+.PARAMETER VM
+    Zu exportierende VMs
+.PARAMETER User
+    User mit dem sich zu ESX-Server verbunden wird
+.PARAMETER Password
+    Passwort mit dem sich zu ESX-Server verbunden wird
+.PARAMETER WithSameHardwareIDs
+    Wenn dieser Switch gesetzt ist, werden Hardware Informationen
+    wie Bios Seriennummer (UUID) und MAC-Addressen mit exportiert
+    ACHTUNG: Diese Option verringert die Portabilität der VM
+.PARAMETER ExportDestination
+    Hier werden die OVF Folder gespeichert
+.PARAMETER TempCloneToDatastore
+    Wenn die VM "PoweredOn" ist kann sie normalerweise nicht exportiert werden.
+    Soll Sie dennoch exportiert werden kann sie hiermit Temporär auf einen
+    Datastore geklont werden bevor sie exportiert wird
+.PARAMETER ovftool
+    Pfad zur ovftool.exe falls du eine andere Version verwenden willst
+.PARAMETER openssl
+    Openssl wird benötigt um eine Manifest Datei zu erstellen. Noch nicht vollständig implementiert
+    Es geht auch ohne Manifest
+.PARAMETER vCenter
+    ist die Source ein vCenter oder nicht. Sollte in Zukunft automatisch ermittelt werden
+.LINK
+    https://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/Export-VM-toOVFDir
+.LINK
+    https://www.vmware.com/support/developer/ovf/
+
+#>
+Function Export-VM-fromESX {
+    [CmdletBinding()]
+    param(
+        [Parameter(
+            Position=0, 
+            ValueFromPipeline=$true,
+            Mandatory=$true)
+        ]
+        [Alias('VirtualMachine')]
+        $VM,
+        $User,
+        $Password,
+        [switch]$WithSameHardwareIDs,
+        $ExportDestination=".",
+        $TempCloneToDatastore="",
+        $ovftool=$global:ovftool,
+        $openssl=$PSScriptRoot + "\bin\openssl.exe",
+        [switch]$vCenter
+    )
+    
+    Begin{
+        $a_vm=@()
+    }
+
+    Process{
+        $VM | ForEach-Object {
+            $a_vm+=$_
+        }
+    }
+
+    End{
+
+        if($WithSameHardwareIDs){
+            $export_flags="--exportFlags=mac,uuid"
+        }
+        else{
+            $export_flags=""
+        }
+
+        $a_vm | ForEach-Object {
+            $o_vm=$_
+            if($vCenter){
+                $dc_name=(Get-Datacenter | Select-Object -First 1).Name
+                . $ovftool "--noSSLVerify" "--overwrite" $export_flags ("vi://"+$User+":"+$Password+"@"+$global:DefaultVIServer.Name+"/?moref=vim.VirtualMachine:"+$o_vm.ExtensionData.MoRef.Value) ($ExportDestination+"\"+$o_vm.Name+".ova")
+            }
+            else{
+                . $ovftool "--noSSLVerify" "--overwrite" $export_flags ("vi://"+$User+":"+$Password+"@"+$global:DefaultVIServer.Name+"/"+$o_vm.Name+"") ($ExportDestination+"\"+$o_vm.Name+".ova")
+            }
+        }
+    }
+        
 }
 
 
@@ -4913,6 +5875,9 @@ Function Export-VM-toOVFDir {
     Es können auch mehrere OVF Verzeichnisse in einer Pipe oder als Array übergeben werden
 .DESCRIPTION
     Der Import funktioniert über ovftool. Aktuell muss für vSphere 6.5 OVFTool 4.3.0 installiert sein
+
+    Vorher in Ziel vCenter einloggen (Connect-VIServer)
+    Dann Import Befehl verwenden
 .PARAMETER OVFDir
     Verzeichnis mit Virtueller Maschine im OVF Format. Kann einzeln, via Pipe oder als Array übergeben werden
 .PARAMETER TargetVMName
@@ -4940,7 +5905,9 @@ Function Export-VM-toOVFDir {
 .PARAMETER ovftool
     Pfad zur Executable von OVFTool. Falls du eine andere Version verwenden willst
 .LINK
-    https://www.vmware.com/support/developer/ovf/ovftool-430-userguide.pdf
+    https://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/Import-VM-fromOVFDir
+.LINK
+    https://www.vmware.com/support/developer/ovf/
 #>
 Function Import-VM-fromOVFDir {
     param(
@@ -4950,6 +5917,7 @@ Function Import-VM-fromOVFDir {
             Mandatory=$true)
         ]
         $OVFDir,
+        #$TargetVcenter, #//XXX Todo hier ist / war ein Problem. Target VCenter muss automatisch von der Verbindung ermittelt werden 
         $TargetVMName="",
         $TargetLocation,
         $TargetDatastore,
@@ -4963,6 +5931,9 @@ Function Import-VM-fromOVFDir {
 
     Begin{
         $a_dirs=@()
+        $start_time=Get-Date
+
+        $TargetVcenter = $global:DefaultVIServer.Name
     }
 
     Process{
@@ -4980,7 +5951,8 @@ Function Import-VM-fromOVFDir {
             $o_Config=Import-Clixml -Path ($o_ovfdir.FullName + "\*.ExtensionData.Config.cli.xml")
             $o_AdvancedSetting=Import-Clixml -Path ($o_ovfdir.FullName + "\*.AdvancedSetting.cli.xml")
 
-            $o_TargetHost=Get-VMHost $TargetHost
+            #Wir nicht mehr benötigt, weil wir TargetLocation haben
+            #$o_TargetHost=Get-VMHost $TargetHost
 
 
             #Ziel Folder finden
@@ -4999,6 +5971,11 @@ Function Import-VM-fromOVFDir {
             }
 
             $datastore_moref=(Get-Datastore -Name $TargetDatastore | Get-View).MoRef
+
+            if($TargetNetwork.GetType().Name -eq "PSCustomObject"){
+                $TargetNetwork=$TargetNetwork.Name
+            }
+
             $network_moref=(Get-View -ViewType Network | Where-Object{$_.Name -eq $TargetNetwork}).MoRef
 
             $location_moref=($TargetLocation | Get-View).MoRef
@@ -5075,7 +6052,215 @@ Function Import-VM-fromOVFDir {
     }
 }
 
+<#
+.SYNOPSIS
+    Eine kleine Hilfsfunktion um Netzwerke in einem vCenter anzuzeigen
+    PowerCLI liefert noch keinen eigenen Get-Network Befehl
+#>
+Function Get-Network{
+    param(
+        $Name=""
+    )
+    if($Name -eq ""){
+        Get-View -ViewType Network | Select Name
+    }
+    else{
+        Get-View -ViewType Network | Where-Object{$_.Name -eq $Name} | Select Name
+    }
+}
 
+<#
+.SYNOPSIS
+    Exportiert VMs von einem vCenter als OVF
+    und importiert diese ins nächste vCenter von OVF
+.DESCRIPTION
+    Dieses Cmdlet verwendet Export-VM-toOVFDir und Import-VM-fromOVFDir
+    in Kombination um VMs von einem vCenter zu exportieren und sofort
+    ins nächste vCenter zu importieren.
+    Es werden sehr viele Parameter benötigt um dieses CMDlet automatisiert
+    laufen zu lassen.
+
+    Am besten vorher die ganzen benötigen Parameter in Variablen speichern
+    und somit gleichzeitig auch überprüfen ob die angesprochenen Objekte auch
+    korrekt sind. Das CMDlet geht meistens davon aus, dass die als Parameter
+    übergebenen Objekte auch wirklich im Source bzw Target vCenter existent sind
+.PARAMETER VM
+    Virtuelle Maschine die kopiert wird
+.PARAMETER SourceVCenter
+    vCenter aus dem kopiert wird
+.PARAMETER SourceCred
+    Powershell Credential zur Anmeldung am SourceVcenter
+.PARAMETER TargetVCenter
+    vCenter in das kopiert wird
+.PARAMETER TargetCred
+    Powershell Credential zur Anmeldung am TargetVCenter
+.PARAMETER WithSameHardwareIDs
+    Die Hardware IDs (Mac-Addressen, BIOS UUID) der Quell-VM
+    werden in das Ziel übernommen
+.PARAMETER ExportDestination
+    Lokaler Pfad an dem die OVF Verzeichnissse zwischengespeichert werden
+.PARAMETER TempCloneToDatastore
+    Wenn die VM im Quell vCenter Online (PoweredOn) ist kann sie normalerweise
+    nicht exportiert werden. Mit einem temporären Klon in einen anderen
+    Datastore geht das allerdings schon.
+    Achtung die VM hat dann einen Status als wäre die Festplatte im laufenden
+    Betrieb gezogen werden (also wie Snapshot ohne Arbeitsspeicher)
+.PARAMETER TargetVMName
+    So soll die VM am Ziel heissen
+    ACHTUNG noch nicht implementiert um dies mit mehreren VMs gleichzeitig
+    zu machen
+.PARAMETER TargetLocation
+    Ziel ESX-Host, Cluster, Resource-Pool
+.PARAMETER TargetDatastore
+    Ziel Datastore auf dem die VM dann importiert wird
+.PARAMETER TargetFolder
+    In diesem Folder wird die VM am Ziel angezeigt
+.PARAMETER TargetNetwork
+    Netzwerkkarten der VM werden am Ziel an dieses Netzwerk angeschlossen
+.PARAMETER TargetDiskStorageFormat
+    In diesem VM Festplatten Format wird die VM am Ziel gespeichert
+    Standardmäßig Thick
+.PARAMETER RemoveExportedOVF
+    Die Exportierten Files werden nach Import am Ziel wieder gelöscht
+.PARAMETER ovftool
+    Pfad zur ovftool.exe (wenn etwas anderes als Default benötigt wird)
+.PARAMETER openssl
+    Wird aktuell nicht verwendet. Aber hat evtl Relevanz zur Erstellung von
+    Manifest Files
+.LINK
+    https://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/Copy-VM-viaOVFDir
+.LINK
+    https://www.vmware.com/support/developer/ovf/
+#>
+Function Copy-VM-viaOVFDir {
+    [CmdletBinding()]
+    param(
+        [Parameter(
+            Position=0, 
+            ValueFromPipeline=$true,
+            Mandatory=$true)
+        ]
+        [Alias('VirtualMachine')]
+        $VM,
+        $SourceVCenter,
+        $SourceCred,
+        $TargetVCenter,
+        $TargetCred,
+        [switch]$WithSameHardwareIDs,
+        $ExportDestination=".",
+        $TempCloneToDatastore="",
+        $TargetVMName="",
+        $TargetLocation,
+        $TargetDatastore,
+        $TargetFolder,
+        $TargetNetwork,
+        [ValidateSet('Thick','Thin','EagerZeroedThick')]
+        $TargetDiskStorageFormat="Thick",
+        [switch]$RemoveExportedOVF,
+        $ovftool=$global:ovftool,
+        $openssl=$PSScriptRoot + "\bin\openssl.exe"
+    )
+
+    Begin{
+        $a_vm=@()
+        Set-PowerCLIConfiguration -DefaultVIServerMode Single -Confirm:$false
+    }
+
+    Process{
+        $VM | ForEach-Object {
+            $a_vm+=$_
+        }
+    }
+
+    End{
+        $a_vm | ForEach-Object {
+            $o_vm=$_
+
+            $source_conn=Connect-VIServer -Server $SourceVCenter -Credential $SourceCred
+            $ovf_dir=Export-VM-toOVFDir -VM $o_vm -WithSameHardwareIDs:$WithSameHardwareIDs -ExportDestination $ExportDestination `
+                -TempCloneToDatastore $TempCloneToDatastore -ovftool $ovftool -openssl $openssl
+
+            Disconnect-VIServer -Server $SourceVCenter -Confirm:$false
+
+            $target_conn=Connect-VIServer -Server $TargetVCenter -Credential $TargetCred
+
+            Import-VM-fromOVFDir -OVFDir $ovf_dir -TargetVMName $TargetVMName -TargetLocation $TargetLocation -TargetDatastore $TargetDatastore `
+                -TargetFolder $TargetFolder -TargetNetwork $TargetNetwork -TargetDiskStorageFormat $TargetDiskStorageFormat -WithSameHardwareIDs:$WithSameHardwareIDs `
+                -ovftool $ovftool
+
+            If($RemoveExportedOVF){
+                $ovf_dir | Remove-Item -Recurse -Confirm:$false
+            }
+
+            Disconnect-VIServer -Server $TargetVCenter -Confirm:$false
+
+        }
+
+        Connect-VIServer -Server $SourceVCenter -Credential $SourceCred
+    }
+    
+}
+
+<#
+.SYNOPSIS
+    Gibt VMs mit gemounteter ISO zurück
+.DESCRIPTION
+    Sucht in allen VMs die im Parameter VM übergeben wurden nach Kandidaten die ein
+    ISO gemounted (eine CDROM / DVD in ihrem virtuellen Laufwerk eingelegt haben)
+
+    Es werden die VM Objekte zurückgegeben und können somit in einer Pipe wiederverwendet werden
+.PARAMETER VM
+    Liste von virtuellen Maschinen die durchsucht werden sollen
+.EXAMPLE
+    Get-VM-WithISOMounted | Unmount-VM-ISO
+#>
+Function Get-VM-WithISOMounted {
+    param(
+        [Parameter(
+            Position=0, 
+            ValueFromPipeline=$true,
+            ValueFromPipelineByPropertyName=$true)
+        ]
+        [Alias('VirtualMachine')]
+        $VM=(Get-VM)
+    )
+
+    Begin {
+
+    }
+
+    Process {
+        $VM | ForEach-Object {
+            $o_vm=$_
+            if($o_vm | Get-CDDrive | select @{N="VM";E="Parent"},IsoPath | where {$_.IsoPath -ne $null}){
+                $o_vm
+            }
+
+        }
+    }
+
+    End {}
+}
+
+<#
+.SYNOPSIS
+    Zeigt VMs mit gemounteter ISO an
+.DESCRIPTION
+    Sucht in allen VMs die im Parameter VM übergeben wurden nach Kandidaten die ein
+    ISO gemounted (eine CDROM / DVD in ihrem virtuellen Laufwerk eingelegt haben)
+
+    Die zurückgegebenen Objekte sind KEINE VM Objekte sondern dienen lediglich der Anzeige
+    welche ISO gemountet ist. Nicht in einer Pipe weiterverwenden
+    Wenn du Aktionen mit den gefundenen VMs durchführen willst, dann verwende:
+
+    Get-VM-WithISOMounted
+.PARAMETER VM
+    Liste von virtuellen Maschinen die durchsucht werden sollen
+.EXAMPLE
+    Show-VM-WithISOMounted
+.EXAMPLE
+    Get-Folder "Test" | Get-VM | Show-VM-WithISOMounted
+#>
 Function Show-VM-WithISOMounted {
     param(
         [Parameter(
@@ -5128,5 +6313,997 @@ Function Unmount-VM-ISO {
 
 }
 
+#//XXX Full Clone eines Snapshots einer VM
+###############################################################################################
+#//XXX nicht von mir (RAC)
+#//XXX ToDo Implementation passt nicht zu den restlichen CMDlets
+#das hier gehört nochmal neu geschrieben im RAC Style
+#Danke an: 
+# * https://www.jonathanmedd.net/2013/07/clone-a-vm-from-a-snapshot-using-powercli.html
+# * https://gheywood.wordpress.com/2014/09/08/creating-a-clone-from-a-snapshot-on-vmware-vsphere/
+# * http://www.vmdev.info/?p=202
+###############################################################################################
+
+function New-VMFromSnapshot {
+<#
+ .SYNOPSIS
+ Function to create a clone from a snapshot of a VM.
+
+ .DESCRIPTION
+ Function to create a clone from a snapshot of a VM.
+    //XXX nicht von mir (RAC)
+    //XXX ToDo Implementation passt nicht zu den restlichen CMDlets
+    das hier gehört nochmal neu geschrieben im RAC Style
+ .PARAMETER SourceVM
+ VM to clone from.
+
+.PARAMETER CloneName
+ Name of the clone to create
+
+.PARAMETER SnapshotName
+ Name of the snapshot to clone from
+
+.PARAMETER CurrentSnapshot
+ Use the current snapshot instead of a named snapshot
+
+.PARAMETER Cluster
+ Name of the cluster to place the clone in
+
+.PARAMETER Datastore
+ Name of the datastore to place the clone in
+
+.PARAMETER VMFolder
+ Name of the Virtual Machine folder to put the VM in
+
+.PARAMETER LinkedClone
+ Create a linked clone from the snapshot, rather than a full clone
+
+.INPUTS
+ String.
+ System.Management.Automation.PSObject.
+
+.OUTPUTS
+ VMware.Vim.ManagedObjectReference.
+
+.EXAMPLE
+ PS> New-VMFromSnapshot -SourceVM VM01 -CloneName "Clone01" -Cluster "Test Cluster" -Datastore "Datastore01"
+
+.EXAMPLE
+ PS> New-VMFromSnapshot -SourceVM VM01 -CloneName "Clone01" -SnapshotName "Testing" -Cluster "Test Cluster" -Datastore "Datastore01" -VMFolder "Test Clones" -LinkedClone
+
+#>
+[CmdletBinding(DefaultParameterSetName=”Current Snapshot”)][OutputType('VMware.Vim.ManagedObjectReference')]
+
+Param
+ (
+
+[parameter(Mandatory=$true)]
+ [ValidateNotNullOrEmpty()]
+ [PSObject]$SourceVM,
+
+ [parameter(Mandatory=$true)]
+ [ValidateNotNullOrEmpty()]
+ [String]$CloneName,
+
+[parameter(Mandatory=$true,ParameterSetName="Named Snapshot")]
+ [ValidateNotNullOrEmpty()]
+ [String]$SnapshotName,
+
+[parameter(Mandatory=$false)]
+ [ValidateNotNullOrEmpty()]
+ [String]$Cluster,
+
+[parameter(Mandatory=$false)]
+ [ValidateNotNullOrEmpty()]
+ [String]$Datastore,
+
+[parameter(Mandatory=$false)]
+ [ValidateNotNullOrEmpty()]
+ [String]$VMFolder,
+
+[parameter(Mandatory=$false)]
+ [ValidateNotNullOrEmpty()]
+ [Switch]$LinkedClone
+ )
+
+# --- Retrieve snapshot tree using try / catch since if it doesn't exist, an exception is generated
+ function Test-SnapshotExists ($SnapshotQuery) {
+
+try {
+ Write-Verbose "Testing $SnapshotQuery....`n"
+ $TestSnapshot = Invoke-Expression $SnapshotQuery
+ Write-Output $TestSnapshot
+ }
+
+catch [Exception]{
+
+$TestSnapshot = $false
+ Write-Output $TestSnapshot
+ }
+ }
+
+try {
+
+if ($SourceVM.GetType().Name -eq "string"){
+
+ try {
+ $SourceVM = Get-VM $SourceVM -ErrorAction Stop
+ }
+ catch [Exception]{
+ Write-Warning "VM $SourceVM does not exist"
+ }
+ }
+
+ elseif ($SourceVM -isnot [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]){
+ Write-Warning "You did not pass a string or a VM object"
+ Return
+ }
+
+ # --- Set values for the Clone Spec
+ if ($PSBoundParameters.ContainsKey('Cluster')){
+
+ $DefaultClusterResourcePoolMoRef = (Get-Cluster $Cluster | Get-ResourcePool "Resources").ExtensionData.MoRef
+ }
+
+if ($PSBoundParameters.ContainsKey('Datastore')){
+
+$DatastoreMoRef = (Get-Datastore $Datastore).ExtensionData.MoRef
+ }
+
+if ($PSBoundParameters.ContainsKey('LinkedClone')){
+
+$CloneType = "createNewChildDiskBacking"
+ }
+ else {
+
+$CloneType = "moveAllDiskBackingsAndDisallowSharing"
+ }
+
+if ($PSBoundParameters.ContainsKey('VMFolder')){
+
+try {
+
+$Folder = Get-Folder $VMFolder -Type VM -ErrorAction Stop
+ $CloneFolder = $Folder.ExtensionData.MoRef
+ }
+ catch [Exception] {
+
+Write-Warning "VM Folder $VMFolder does not exist, using existing folder instead"
+ $CloneFolder = $SourceVM.ExtensionData.Parent
+ }
+ }
+ else {
+
+$CloneFolder = $SourceVM.ExtensionData.Parent
+ }
+
+# --- Create CloneSpec and initiate Clone Task
+ switch ($PsCmdlet.ParameterSetName)
+ {
+ "Named Snapshot" {
+
+ $Snapshots = @()
+ $SnapshotQuery = '$SourceVM.ExtensionData.Snapshot.RootSnapshotList[0]'
+
+while ($Snapshot = Test-SnapshotExists -SnapshotQuery $SnapshotQuery){
+
+$SnapshotQuery += '.ChildSnapshotList[0]'
+ $Snapshots += $Snapshot
+ }
+
+$CloneSpec = New-Object Vmware.Vim.VirtualMachineCloneSpec
+ $CloneSpec.Snapshot = ($Snapshots | Where-Object {$_.Name -eq $SnapshotName}).Snapshot
+ $CloneSpec.Location = New-Object Vmware.Vim.VirtualMachineRelocateSpec
+ $CloneSpec.Location.Pool = $DefaultClusterResourcePoolMoRef
+ $CloneSpec.Location.Datastore = $DatastoreMoRef
+ $CloneSpec.Location.DiskMoveType = [Vmware.Vim.VirtualMachineRelocateDiskMoveOptions]::$CloneType
+
+$SourceVM.ExtensionData.CloneVM_Task($CloneFolder, $CloneName, $CloneSpec)
+ }
+
+"Current Snapshot" {
+
+$CloneSpec = New-Object Vmware.Vim.VirtualMachineCloneSpec
+ $CloneSpec.Snapshot = $SourceVM.ExtensionData.Snapshot.CurrentSnapshot
+ $CloneSpec.Location = New-Object Vmware.Vim.VirtualMachineRelocateSpec
+ $CloneSpec.Location.Pool = $DefaultClusterResourcePoolMoRef
+ $CloneSpec.Location.Datastore = $DatastoreMoRef
+ $CloneSpec.Location.DiskMoveType = [Vmware.Vim.VirtualMachineRelocateDiskMoveOptions]::$CloneType
+
+$SourceVM.ExtensionData.CloneVM_Task($CloneFolder, $CloneName, $CloneSpec)
+ }
+ }
+ }
+ catch [Exception]{
+
+ throw "Unable to deploy new VM from snapshot"
+ }
+}
+
+###############################################################################################
+#//XXX nicht von mir (RAC) ENDE
+#Danke an: https://www.jonathanmedd.net/2013/07/clone-a-vm-from-a-snapshot-using-powercli.html
+###############################################################################################
+
+
+
+
+Function Search-VM{ 
+
+    [CmdletBinding()]
+    param(
+    $IPAddress = "",
+    $MacAddress = ""
+    )
+
+    Write-Progress -Activity "Searching VMs" -Status "Collecting VMs..."
+
+    $a_vms=Get-VM
+
+    $i=0
+    
+    $search_status_string="Searching with: "
+
+    $a_status_strings=@()
+    if($IPAddress -ne ""){
+        $a_status_strings+="IP-Address $IPAddress"
+    }
+    if($MacAddress -ne ""){
+        $a_status_strings+="Mac-Address $MacAddress"
+    }
+
+    $search_status_string+=$a_status_strings -join "; "
+
+
+    $a_vms | %{
+            $output_this_vm=$false
+
+            $percent=$i / $a_vms.Count * 100
+
+            Write-Progress -Activity "Searching VMs" -Status $search_status_string -PercentComplete $percent
+            $vm=$_
+            #$a_ips=@()
+		    
+            #Das wird eine ODER Verknüpfung
+            #Wenn wir via IP-Addresse vinden
+            if($IPAddress -ne ""){
+
+                $vmIPs = $vm.Guest.IPAddress
+                $vm | Add-Member -MemberType NoteProperty -Name IpAddresses -Value $vmIPs
+		        foreach($ip in $vmIPs) {
+			        if ($ip -eq $IPAddress) {
+                        Write-Verbose("Found VM with matching IP address: {0}" -f $_.Name)
+                        
+                        $output_this_vm=$true
+				
+			        }
+		        }
+            }
+
+            #ODER Wenn wir die VM via Mac-Addresse finden
+            #//XXX Todo
+            #(wir können das mit einem Parameter noch auf UND umbauen
+            #
+            if($MacAddress -ne ""){
+                $vm | Add-Member -MemberType NoteProperty -Name MacAddresses -Value $vm.Guest.Nics.MacAddress
+                ForEach($mac in $vm.Guest.Nics.MacAddress){
+                    #//XXX Todo
+                    #Hier die Suche vielleicht noch etwas "intelligenter" gestalten falls
+                    #verschiedene Schreibweisen für die Mac-Addresse genutzt werden
+                    if($mac -eq $MacAddress){
+                        Write-Verbose("Found VM with matching Mac address: {0}" -f $_.Name)
+                        $output_this_vm=$true
+                    }
+                }
+                
+            }
+
+
+            if($output_this_vm){
+                $vm
+            }
+            $i++
+	    }
+
+}
+
+
+Function Report-VM {
+<#
+.SYNOPSIS
+Reportet virtuelle Maschinen bei denen ein bestimmter Event aufgetreten ist
+
+.DESCRIPTION
+Für ale Virtuelle Maschinen wird "Get-VIEvent" ausgeführt und diese Messages werden
+nach einem Event gefiltert. Maschinen die gefunden werden, werden zurückgegeben
+
+.PARAMETER EventMessage
+EventMessage nach der gesucht wird. Kann mit Wildcard "*" gefiltert werden.
+
+.PARAMETER Start
+DateTime Zeitpunkt ab dem gesucht wird
+
+.PARAMETER End
+DateTime Zeitpunkt bis zu dem gesucht wird
+
+.EXAMPLE
+Report-VM -EventMessage "vSphere HA restarted virtual machine*" -Start ((Get-Date).AddDays(-4))
+#>
+
+    param(
+		[ArgumentCompleter(
+			{
+                param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+                
+                $a_search_events=@(
+                    '"vSphere HA restarted virtual machine*"',
+                    '"Reconfigured*"'
+                )
+
+                $a_search_events | Where-Object {$_ -like ("*" + $WordToComplete + "*")}
+                #$a_search_events
+
+            }
+        )]
+        $EventMessage,
+        $Start=(Get-Date).AddDays(-1),
+        $End=(Get-Date)
+    )
+
+    Begin{}
+
+    Process{}
+
+    End{
+        $report_objects=Get-VM | Where-Object{$_ | Get-VIEvent -Start $Start -Finish $End | 
+            Where-Object{$_.FullFormattedMessage -match $EventMessage}} | VIM-Get-VMValue
+        
+         $report_objects | Select-Object Name,Ansprechpartner,Applikation,Stage | ConvertTo-StyledHTML | New-OutlookMail
+    }
+
+}
+
+
+
+Function VIM-Get-VMEvents {
+
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM
+    )
+
+    Begin{}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm=Get-VM $_
+
+            $o_vm | Get-VIEvent | Sort-Object -Property CreatedTime | ForEach-Object {
+                
+                $evt=$_
+
+                New-Object -TypeName PSObject -Property ([ordered]@{
+                    VM=$evt.vm.Name
+                    User=$evt.UserName
+                    Type=$evt.gettype().Name
+                    DateTime=$evt.CreatedTime
+                    Message=$evt.FullFormattedMessage
+                })
+
+            }
+
+        }
+    }
+
+    End{}
+}
+
+Set-Alias -Name Get-VMEvents -Value VIM-Get-VMEvents
+
+
+Class VIM_VMCreation {
+    $CreatedTime=""
+    $CreationMethod=""
+    $CreationUser=""
+}
+
+
+Function Get-VMCreationEvent {
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM
+    )
+
+    Begin{}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm=$_
+
+            $VMCreation=New-Object -TypeName VIM_VMCreation
+
+
+            $o_vm | VIM-Get-VMEvents | ForEach-Object {
+                $evt=$_
+                if($evt.Type -in @('VmBeingDeployedEvent','VmRegisteredEvent','VmClonedEvent','VmBeingCreatedEvent')){
+                    
+                    if($VMCreation.CreatedTime -eq ""){
+                        $VMCreation.CreatedTime=$evt.DateTime
+                    }
+
+                    switch ($evt.Type)
+                    {
+                        'VmClonedEvent' {$VMCreation.CreationMethod = 'Cloned'; break;} 
+                        'VmRegisteredEvent' {$VMCreation.CreationMethod = 'RegisteredFromVMX'; break;} 
+                        'VmBeingDeployedEvent' {$VMCreation.CreationMethod = 'VmFromTemplate'; break;}
+                        'VmBeingCreatedEvent' {
+                            <#
+                                VmBeingCreatedEvent könnte auftreten bei
+                                * NewVM
+                                * OVADeployment (unter vSphere 6.7 macht das die vpxd-extension)
+                            #>
+                            $VMCreation.CreationMethod = 'NewVM';
+                            
+                            if($evt.User -like "VSPHERE.LOCAL\vpxd-extension-*"){
+                                $VMCreation.CreationMethod = 'OvaDeployment'
+                            }
+                            break;
+                        }
+                        default {$CreationMethod='Unknown'; break;}
+                    }   
+                }
+
+                if($VMCreation.CreationUser -eq ""){
+                    $CreationUserParts=$evt.User -split '\',-1,'SimpleMatch'
+                    $searchName=$CreationUserParts[1]
+
+                    Write-Verbose("Event searchName in Active Directory: '"+$searchName + "'")
+
+                    if(-not ($searchName -eq "" -or $null -eq $searchName)){
+                        if($ADUser=Get-ADUser -Filter ('samAccountName -eq "'+ $searchName +'"')){
+                            $VMCreation.CreationUser=$evt.User
+                        }
+                    }
+                }
+            }
+
+            $VMCreation
+
+        }
+    }
+
+    End{}
+}
+
+
+
+
+Function Sync-VMDocumentation {
+    [CmdletBinding()]
+    param()
+
+    #Nicht mehr vorhandene VMs löschen
+    Get-AllPages -namespace VM | ForEach-Object {
+        $page=$_
+
+        #$page
+
+        #//XXX umstellen, dass ich die Informationen in ein Mediawiki Template schreibe
+        #Das Template kann ich dann für den Sync wieder auslesen (und muss mich nicht alleine auf den Title verlassen)
+
+        $match=$page.title | Select-String -Pattern 'VM:([^/]*)/(.*)'
+
+
+        if($match){
+
+            $o_page=New-Object -TypeName PSObject -Property ([ordered]@{
+                datacenter=$match.Matches.Groups[1].Value
+                vm=$match.Matches.Groups[2].Value
+                #//XXX hier weiter
+            })
+
+
+            $o_pageinfo=Get-VMDocumentation -Page $page.title
+
+            Write-Host("Fetching VM: Datacenter: "+$o_page.datacenter+ " VM: "+ $o_pageinfo.Name)
+
+            #$old_error_pref=$ErrorActionPreference
+            #$ErrorActionPreference = "Stop"
+            Try{
+                $vm=Get-Datacenter -Name $o_page.datacenter | Get-VM $o_pageinfo.Name
+                if($vm){
+                    Write-Host("VM Found: "+$page.title)
+                }
+                else {
+                    Write-Host ("VM Not Found. Deleting Page: "+$page.title)
+                    Remove-Page -title $page.title -reason ("VM '" + $page.title + "' does not exist")
+                }
+            }
+            Catch{
+                Write-Host $_.Exception.Message -ForegroundColor Red
+                Write-Host $_.Exception.ItemName -ForegroundColor Red
+                #Write-Host ("VM Not Found. Deleting Page: "+$page.title)
+                #Remove-Page -title $page.title -reason ("VM '" + $page.title + "' does not exist")
+            }
+
+            #$ErrorActionPreference=$old_error_pref
+        }
+        else{
+
+            Write-Verbose("'" + $page.title + "' does not match Regex (VM:Datacenter/VM)")
+
+        }
+
+
+    }
+
+    Get-VM | Set-VMDocumentation
+
+}
+
+Function Get-VMDocumentation{
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias("VirtualMachine","VM")]
+        $Page
+    )
+
+    Begin{}
+
+    Process{
+        $Page | ForEach-Object {
+            $o_page = $_
+            #$s_datacenter=($o_vm | Get-Datacenter).Name
+
+            #Wenn ich eine VM übergeben bekommen habe, kann ich mir die Wiki Seite
+            #dafür suchen
+            if($o_page.GetType().Name -eq "VirtualMachineImpl"){
+                $s_datacenter=$o_page | Get-Datacenter
+                $wiki_content=Get-WikiPageFragment -title ("VM:"+$s_datacenter+"/"+$o_page.Name) -tag_id "vcenter_info"
+            }
+            else{
+                $wiki_content=Get-WikiPageFragment -title $o_page -tag_id "vcenter_info"
+                
+            }
+
+            $a_items=$wiki_content.Split("|")
+
+
+            $o_vminfo=New-Object -TypeName PSObject
+            #Erstes und letztes Item auslassen
+            for($i=1;$i -lt ($a_items.Count -1); $i++){
+                $a_vals=$a_items[$i].Split("=")
+                $o_vminfo | Add-Member -MemberType NoteProperty -Name $a_vals[0] -Value $a_vals[1] -Force
+            }
+
+            $o_vminfo
+
+        }
+    }
+
+    End{}
+}
+
+Function Set-VMDocumentation {
+<#
+.SYNOPSIS
+    Erstellt die Dokumentation für eine Virtuelle Maschine
+.PARAMETER VM
+    VM für die Dokumentiert werden soll
+.NOTES
+   //XXX umstellen, dass ich die Informationen in ein Mediawiki Template schreibe
+   Das Template kann ich dann für den Sync wieder auslesen (und muss mich nicht alleine auf den Title verlassen) 
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM=(Get-VM)
+    )
+
+    Begin{}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm = Get-VM $_ | VIM-Get-VMValue
+
+            $a_tags=$o_vm | Get-TagAssignment
+
+            $out="`r`n"
+
+            $out+="= VM Informationen ="+ "`r`n"
+
+
+            $out+='{{Template:VirtualMachine|'
+            $out+='Name=' + $o_vm.Name + '|'
+            $out+='Kunde=' + ($o_vm.Kunde -join ", ") + '|'
+            $out+='BusinessService=' + (($a_tags.Tag | Where-Object {$_.Category -like "Business Service*"}).Name) + '|'
+            $out+='Applikation=' + ($o_vm.Applikation -join ", ") + '|'
+            $out+='Creator=' + ($o_vm.Creator -join ", ") + '|'
+            $out+='Ansprechpartner=' + ($o_vm.Ansprechpartner -join ", ") + '|'
+            $out+='Erstellt=' + ($o_vm."VIM.DateCreated") + '|'
+            $out+='VerwendetBis=' + ($o_vm."VIM.DateUsedUntil") + '|'
+            $out+='Beschreibung=' + ($o_vm."Notes") + '|'
+            #//XXX Tags evtl aus dem Wiki Template rausnehmen und stattdessen eine Tabelle mit jeweils Name und Beschreibung rendern
+            $out+='Tags=' + ($a_tags.Tag.Name -join ", ") + '|'
+            $out+='VMRC=' + ($o_vm | Get-VMRC-Url) + '|'
+            $out+='}}'
+            $out+="`r`n"
+
+            $datacenter=Get-Datacenter -VM $o_vm
+
+            $wiki_title="VM:" + $datacenter + "/"+$o_vm.Name
+
+            Set-WikiPageFragment -title $wiki_title -tag_id "vcenter_info" -content $out
+
+        }
+    }
+
+    End{}
+
+}
+
+
+Function Get-VMHardDiskLUNReport {
+
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM=(Get-VM)
+    )
+    
+    Begin{}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm = $_
+            $o_vm | Get-HardDisk | Select Parent, Name, CapacityGB, Filename, StorageFormat
+        }
+    }
+
+    End{}
+
+}
+
+Function Get-VMDocAnsprechpartnerStrings {
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        $VMDocumentation
+    )
+
+    Begin{}
+
+    Process{
+
+        $VMDocumentation | ForEach-Object {
+            $o_vmdoc=$_
+            $a_strings=$o_vmdoc.Ansprechpartner -split "; Ansprechpartner,{0,1} {0,1}"
+
+            $a_strings | ForEach-Object {
+                $str=$_
+                if($str -ne ""){
+                    $str
+                }
+            }
+        }
+    }
+
+    End{}
+}
+
+Function Recover-VMDocumentationFromWiki {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM=(Get-VM)
+    )
+
+    Begin{}
+
+    Process{
+
+        $VM | ForEach-Object {
+            $o_vm=Get-VM $_
+
+            $o_vmdoc=$o_vm | Get-VMDocumentation
+
+            #Kunden Tags holen
+            $a_kunden=$o_vmdoc.Kunde -split ", "
+            $o_kunden_tags=Get-Tag -Category "Kunde" -Name $a_kunden
+
+            #Kunden Tags setzen
+            $o_kunden_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
+
+            #Business Service Tags holen
+            $a_val=$o_vmdoc.BusinessService -split ", "
+            $o_val_tags=Get-Tag -Category "Business Service" -Name $a_val
+
+            #Business Service Tags setzen
+            $o_val_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
+
+            #Applikation Tags holen
+            $a_val=$o_vmdoc.Applikation -split ", "
+            $o_val_tags=Get-Tag -Category "Applikation" -Name $a_val
+
+            #Business Service Tags setzen
+            $o_val_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
+
+
+            #Creator Setzen
+            $o_val_tag=Get-Tag -Category Creator -Name $o_vmdoc.Creator
+            New-TagAssignment -Entity $o_vm -Tag $o_val_tag
+
+            #Ansprechparnter setzen
+            Get-VMDocAnsprechpartnerStrings -VMDocumentation $o_vmdoc | ForEach-Object {
+                $o_val_tag = Get-Tag -Category Ansprechpartner -Name ($_+"; Ansprechpartner")
+                New-TagAssignment -Entity $o_vm -Tag $o_val_tag
+            }
+
+            #Erstellt, UsedUntil usw
+            $o_vm | VIM-Set-Value -DateCreated $o_vmdoc.Erstellt -DateUsedUntil $o_vmdoc.VerwendetBis -CreationMethod "Recovered" -CreationUser "vcenter"
+
+        }
+    }
+
+    End{}
+
+}
+
+
+#//XXX hier weiter
+Function Shutdown-BusinessServiceVM {
+    param(
+        $BusinessService
+    )
+
+    Get-VM -Tag (Get-Tag -Category "Business Service" -Name $BusinessService) | VIM-Shutdown-VM
+}
+
+Function Start-BusinessServiceVM {
+    param(
+        $BusinessService
+    )
+
+    Get-VM -Tag (Get-Tag -Category "Business Service" -Name $BusinessService) | Start-VM
+}
+
+Function Reduce-VMCpuReservation {
+
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM=(Get-VM),
+        $percent=0
+    )
+
+
+    Begin{}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm=$_
+
+            $o_vm | VIM-Get-ResourceReservation | ForEach-Object{
+                Set-VMResourceConfiguration -Configuration $_ -CpuReservationMhz ([int]$_.CpuReservationMhz * ($percent / 100))
+            }
+        }
+    }
+
+    End{}
+
+}
+
+
+Function Deploy-Ovf {
+    [cmdletBinding()]
+    param(
+        $OvfConfig,
+        $VMName,
+        [ValidateSet("Thick","Thin","EagerZeroedThick")]
+        $DiskStorageFormat,
+
+        $VMHost=$global:vim_focus.VMHost,
+        $Folder=$global:vim_focus.Folder,
+        $Datastore=$global:vim_focus.Datastore,
+        [switch]$RemoveReservations,
+        [switch]$StartImmediately
+    )
+
+    $vm=Import-VApp -Source $OvfConfig.Source -OvfConfiguration $OvfConfig -Name $OvfConfig.Common.hostname `
+        -InventoryLocation $Folder `
+        -VMHost $VMHost `
+        -Datastore $Datastore `
+        -DiskStorageFormat $DiskStorageFormat
+
+    if($RemoveReservations){
+        #Es kann sein, dass ich keine Reservierungen brauchen kann
+        $reservation_result=$vm | VIM-Get-ResourceReservation | %{Set-VMResourceConfiguration -Configuration $_ -CpuReservationMhz 0 -MemReservationGB 0}
+    }
+    
+    if($StartImmediately){
+        $vm=Get-VM $vm | Start-VM
+    }
+
+    #Hier könnte so etwas wie "Calculate Reservations" kommen. aber initial erst mal nicht
+
+    #Ausgabe
+    Get-VM $vm
+}
+
+Set-Alias -Name Deploy-Ova -Value Deploy-Ovf
+
+<#
+.SYNOPSIS
+    Erstellt ein Template Script für das Deployment eines OVA / OVF
+.DESCRIPTION
+    Dieses Cmdlet liest die Konfigurationsparameter aus einer OVA / OVF.
+    Alle möglichen zu befüllenden Parameter werden übersichtlich in Powershell
+    Syntax als ein Script ausgegeben. Standardmäßig wird das Script an StdOut
+    ausgegeben. Die Ausgabe kann also entweder vom Bildschirm kopiert, oder
+    direkt in eine Script Datei umgeleitet werden
+.PARAMETER ovfconfig
+    Ein OvfConfig Objekt das mittels Get-OvfConfiguration erstellt wurde
+.PARAMETER withHeader
+    Der Header des Scripts, der das Laden der Ovf zeigt (standardmäßig AN)
+.PARAMETER withFooter
+    Der Footer des Scripts der das Deployment mit der erstellten Konfig zeigt (standardmäßig AN)
+.PARAMETER withDescription
+    Die Beschreibung eines jeden Konfigurationsparameters wird als Kommentar in das Script eingefügt.
+    Das Template Script wird dadurch sehr umfangreich bzw unübersichtlich (standardmäßig AUS)
+.EXAMPLE
+    Get-OvfConfigTemplateScript -ovfconfig (Get-OvfConfiguration -Ovf ".\AAM\AAM-07.0.0.0.441-e55-0.ova")
+.EXAMPLE
+    Get-OvfConfigTemplateScript -ovfconfig (Get-OvfConfiguration -Ovf "SMGR\SMGR-7.1.0.0.1125193-e65-50\SMGR-7.1.0.0.1125193-e65-50.ovf")
+    #Das SMGR .ova hatte Fehler. Daher hatte ich es entpackt, korrigiert. aber nicht mehr eingepackt, sondern direkt das .ovf verwendet
+.EXAMPLE
+    #Das ganze geht natürlich auf auf mehrere Schritte
+    $ovfconfig=Get-OvfConfiguration -Ovf ($ovapath + "\SMGR\SMGR-7.1.0.0.1125193-e65-50\SMGR-7.1.0.0.1125193-e65-50.ovf")
+    Get-OvfConfigTemplateScript -ovfconfig $ovfconfig | Out-File smgrDeployTest.ps1
+#>
+Function Get-OvfConfigTemplateScript {
+    [cmdletBinding()]
+    param(
+        $ovfconfig,
+        [switch]$withHeader=$true,
+        [switch]$withFooter=$true,
+        [switch]$withDescription=$false
+    )
+
+    #$ovfconfig=Get-OvfConfiguration -Ovf ($ovapath + "\CM\CM-Duplex-07.1.0.0.532-e65-0.ova")
+    #Header
+    #Im Header laden wir die Config
+    if($withHeader){
+        $line='$ovfconfig=Get-OvfConfiguration -Ovf '''+ $ovfconfig.Source +''''
+        $line
+        ''
+    }
+
+    #DeploymentOption ist ein Sonderfall
+    $line='{0,-60}{1,-2}{2}' -f 
+        ('$ovfconfig.DeploymentOption.Value'),
+        '=',
+        ("'"+$ovfconfig.DeploymentOption.DefaultValue+"'")
+    $line
+
+    #Jetzt gehen wir durch die restlichen Properties in der ovfconfig
+    $ovfconfig.PSObject.Properties | 
+        Where-Object {$_.Name -notin @("Source","DeploymentOption")} | 
+        ForEach-Object {
+            $catProp=$_
+            #Eine leere Zeile :)
+            ''
+            $line=("#Category: " + $catProp.Name)
+            $line
+        
+        
+            #$catProp
+
+            $catProp.Value.PSObject.Properties | ForEach-Object {
+                $setProp=$_
+
+                #$ovfconfig.($catProp.Name).($setProp.Name).DefaultValue -eq ''
+                #$defConfValue
+                if($ovfconfig.($catProp.Name).($setProp.Name).DefaultValue -ne ''){
+                    $defConfValue="'"+$ovfconfig.($catProp.Name).($setProp.Name).DefaultValue+"'"
+                }
+                else{
+                    $defConfValue='$null'
+                }
+                <#
+                #Nur die ersten 10 Zeichen der Description
+                $desc=$ovfconfig.($catProp.Name).($setProp.Name).Description
+                $out_desc=$desc.substring(0,[System.Math]::Min(10,$desc.Length))
+                #>
+
+                #$ovfconfig.($catProp.Name).($setProp.Name).Description
+
+
+
+                if($withDescription){
+                    ''
+                    '<#'
+                    'Description:'
+                    $ovfconfig.($catProp.Name).($setProp.Name).Description
+                    ''
+                    'OvfTypeDescription:'
+                    $ovfconfig.($catProp.Name).($setProp.Name).OvfTypeDescription
+                    '#>'
+                }
+
+                $line='{0,-60}{1,-2}{2}' -f 
+                    ('$ovfconfig.'+ $catProp.Name + '.' + $setProp.Name + '.Value'),
+                    '=',
+                    ($defConfValue)
+                
+
+                $line
+            }
+
+        }
+
+
+    if($withFooter){
+'
+Deploy-OVA -OvfConfig $ovfconfig `
+    -VMName "NewVmName" `
+    -DiskStorageFormat Thin `
+    -RemoveReservations `
+    -StartImmediately 
+'
+    }
+
+
+}
+
+Set-Alias -Name Get-OvaConfigTemplateScript -Value Get-OvfConfigTemplateScript
+
+
+
+Set-Alias -Name VIM-Search-VM -Value Search-VM
+
+
+<#
+Argument Completers fürd die gesamte VMWare.PowerCLI
+So hängt man an bestehende Funktionen einen Argument Completer "dran" du kannst also z.B. auch Get-AD User mit einem Argument Completer erweitern
+ohne dass du Get-ADUser bearbeiten können musst
+
+Das hier ist scheinbar auch die einzige Möglichkeit um Argument Completer VORHER in einer Konstante zu definieren und dann einfach
+mittels Variable anzuhängen.
+
+Die hier drüber definierten VimArgumentCompleters kann icht nicht Inline in den params() angeben, allerdings geht trotzdem das anhängen mittels
+Register-ArgumentCompleter 
+#>
+Register-ArgumentCompleter -CommandName Get-VMHost -ParameterName Name -ScriptBlock $global:VimArgumentCompleters.VMHost
+Register-ArgumentCompleter -CommandName Get-VM -ParameterName Name -ScriptBlock $global:VimArgumentCompleters.VM
+Register-ArgumentCompleter -CommandName Get-Datastore -ParameterName Name -ScriptBlock $global:VimArgumentCompleters.Datastore
+Register-ArgumentCompleter -CommandName Get-Tag -ParameterName Name -ScriptBlock $global:VimArgumentCompleters.TagName
+Register-ArgumentCompleter -CommandName Get-Tag -ParameterName Category -ScriptBlock $global:VimArgumentCompleters.TagCategory
+Register-ArgumentCompleter -CommandName New-TagAssignment -ParameterName Entity -ScriptBlock $global:VimArgumentCompleters.VM
+Register-ArgumentCompleter -CommandName New-TagAssignment -ParameterName Tag -ScriptBlock $global:VimArgumentCompleters.TagName
+Register-ArgumentCompleter -CommandName VIM-ReRegister-VM -ParameterName NewVMHost -ScriptBlock $global:VimArgumentCompleters.VMHost
+Register-ArgumentCompleter -CommandName VIM-Set-DatastoreFocus -ParameterName Datastore -ScriptBlock $global:VimArgumentCompleters.Datastore
+Register-ArgumentCompleter -CommandName Get-Network -ParameterName Name -ScriptBlock $global:VimArgumentCompleters.Network
+
+Register-ArgumentCompleter -CommandName Set-VMHostFocus -ParameterName VMHost -ScriptBlock $global:VimArgumentCompleters.VMHost
+Register-ArgumentCompleter -CommandName Set-DatastoreFocus -ParameterName Datastore -ScriptBlock $global:VimArgumentCompleters.Datastore
+Register-ArgumentCompleter -CommandName Set-NetworkFocus -ParameterName Network -ScriptBlock $global:VimArgumentCompleters.Network
+Register-ArgumentCompleter -CommandName Set-VMFocus -ParameterName VM -ScriptBlock $global:VimArgumentCompleters.VM
+#Register-ArgumentCompleter -CommandName VIM-ReRegister-VM -ParameterName VM -ScriptBlock $global:VimArgumentCompleters.VM
+
 
 Export-ModuleMember -Alias * -Function *
+
+
+

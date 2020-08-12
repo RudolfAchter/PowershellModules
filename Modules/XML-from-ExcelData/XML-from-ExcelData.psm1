@@ -63,7 +63,7 @@ Function Get-XML-from-ExcelData {
     Get-XML-from-ExcelData -ExcelFocus tns_user_data.xlsx -Template tns_user_template.xml | Out-File -FilePath out_data.xml -Encoding utf8
 #>
     param(
-        $ExcelFocus,
+        $ExcelFocus=$global:current_excel_doc_name,
         $Template
     )
 
@@ -99,17 +99,21 @@ Function Get-XML-from-ExcelData {
 
             $excel_data=Get-ExcelTable -DocName $ExcelFocus -SheetName $item_name
 
+            #NUR wenn wir gültige Excel Daten bekommen haben
+            if($excel_data){
+                           
+                #Das hier führen wir für jede Zeile im Excel durch
+                $excel_data | ForEach-Object {
+                    $current_content=$action_content
 
-            #Das hier führen wir für jede Zeile im Excel durch
-            $excel_data | ForEach-Object {
-                $current_content=$action_content
-
-                $data=$_
-                ForEach($prop in $data.PSObject.Properties){
-                    $current_content=$current_content -replace ("{{"+ $prop.Name + "}}"),([System.Security.SecurityElement]::Escape($prop.Value))
+                    $data=$_
+                    ForEach($prop in $data.PSObject.Properties){
+                        $current_content=$current_content -replace ("{{"+ $prop.Name + "}}"),([System.Security.SecurityElement]::Escape($prop.Value))
+                    }
+                    #Verändertes XML / Metadaten ausgeben
+                    $current_content
                 }
-                #Verändertes XML / Metadaten ausgeben
-                $current_content
+
             }
 
             #Daten nach dem Abschnitt ausgeben
