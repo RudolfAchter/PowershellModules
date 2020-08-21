@@ -4,3 +4,7 @@
 Connect-nbAPI -Token $apiToken -APIurl https://netbox.zim.uni-passau.de/api
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12;
 Get-nbTenant | Out-GridView
+
+Get-nbTenantGroup
+
+Connect-LDAP

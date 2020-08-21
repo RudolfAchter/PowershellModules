@@ -162,6 +162,10 @@ Add-Type -AssemblyName System.Web
 . ($ModuleHome + "\include\" + "VMWare_PowerCLI_Addons.ps1")
 
 
+
+
+
+
 #VIMArgumentCompleters Argument Completers allgemein für das gesamte Infrastructure Management
 Set-Variable -Name "VimArgumentCompleters" -Scope global `
     -Description "Argument Completers für Virtual-Infrastructure-Management" `
