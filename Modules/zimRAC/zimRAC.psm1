@@ -752,9 +752,9 @@ Function Copy-DistributionGroupMembersToSendOnBehalf {
 
 Function Get-MessageTrackingAllLogs {
 
-    Get-ExchangeServer | ForEach-Object {
+    Get-ExchangeServer | ? ServerRole -eq Mailbox | ForEach-Object {
         $exsrv=$_
-        Get-MessageTrackingLog -Server $exsrv.Name -Sender "Matthias.Schoeberl@uni-passau.de" -Start "2020-07-28" -End "2020-07-29"
+        Get-MessageTrackingLog -Server $exsrv.Name -Start "2020-07-27" -End "2020-07-30" -Sender "Schoeb06@ads.Uni-Passau.De"# -Recipient "Schoeb06@ads.Uni-Passau.De"
     } | Where-Object EventId -eq "SEND" | Sort-Object -Property Timestamp | Select-Object -First 100
 
 

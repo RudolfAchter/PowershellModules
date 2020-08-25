@@ -46,7 +46,9 @@
     New-ManagementRoleAssignment -Role "Active Directory Permissions" -SecurityGroup "zim-SelfManaged-DistributionGroupManagement" -RecipientRelativeWriteScope MyDistributionGroups
 
 
-    Get-ManagementRoleAssignment -RoleAssignee "zim-SelfManaged-DistributionGroupManagement" -Role  "Active Directory Permissions" | Set-ManagementRoleAssignment -RecipientRelativeWriteScope Organization
+    Get-ManagementRoleAssignment -RoleAssignee "zim-SelfManaged-DistributionGroupManagement" | Select Name,Role,RoleAssigneeName,RecipientWriteScope,CustomRecipientWriteScope
+
+    Get-ManagementRoleAssignment -RoleAssignee "zim-SelfManaged-DistributionGroupManagement" -Role  "Active Directory Permissions" | Set-ManagementRoleAssignment -RecipientRelativeWriteScope MyDistributionGroups
 
     New-ManagementRoleAssignment -Role "View-Only Recipients" -SecurityGroup "zim-SelfManaged-DistributionGroupManagement"
 
@@ -84,6 +86,7 @@ Get-ManagementRoleAssignment zim-ManageMailboxQuota-zim-MailboxQuotaManagement |
 Set-Mailbox -IssueWarningQuota -ProhibitSendQuota -ProhibitSendReceiveQuota
 
 
+<#
 
 Get-ManagementRole
 New-ManagementRole -Name "zim-ManageMySharedMailboxes" -Description "Enables Self Management for Shared Mailboxes" -Parent "Mail Recipients"
@@ -118,7 +121,7 @@ New-ManagementRoleAssignment -Role "Active Directory Permissions" -SecurityGroup
 
 
 New-ManagementScope -Name S001_MailboxMgmtScope -RecipientRestrictionFilter {MemberofGroup -eq "CN=S001_Mailboxes.UG,OU=MgmtScope-RecipientGroups,OU=ZIM-exchange-securitygroups,DC=ads,DC=uni-passau,DC=de"}
-
+#>
 
 
 Get-ManagementScope 
@@ -126,7 +129,7 @@ Get-ManagementScope
 <# START S001#>
 New-RoleGroup -Name "zim-S001-SharedMailboxMgmt" -Description "Member of this Management Role Group are Able to Manage FullAccess and Send As Rights at Group Members of S001_Mailboxes" -Roles "zim-ManageMySharedMailboxes"
 Get-ManagementRoleAssignment "zim-ManageMySharedMailboxes-zim-S001-SharedMailboxMgmt" | Set-ManagementRoleAssignment -CustomRecipientWriteScope S001_MailboxMgmtScope
-New-ManagementRoleAssignment -SecurityGroup "zim-S001-SharedMailboxMgmt" -Role "Active Directory Permissions" -CustomRecipientWriteScope S001_MailboxMgmtScope
+New-ManagementRoleAssignment -SecurityGroup "zim-S001-SharedMailboxMgmt" -Role "Active Directory Permissions" -CustomRecipientWriteScope S001_MailboxMgmtScope -
 New-ManagementRoleAssignment -SecurityGroup "zim-S001-SharedMailboxMgmt" -Role "View-Only Recipients"
 
 < #ENDE S001#>
@@ -270,3 +273,29 @@ $mb | Add-MailboxPermission -User schaetzl -AccessRights FullAccess
 $mb_aduser=Get-ADUser $mb.SamAccountName
 
 Add-ADPermission -Identity $mb_aduser.DistinguishedName -User schaetzl -AccessRights ExtendedRight -ExtendedRights "Send As"
+
+
+
+
+
+
+
+
+
+
+
+New-ManagementRole -Name SecurityScopeGroupsManager -Description "This Role Enables Management of Role Group Management / Admin Group Management" -Parent "Role Management"
+#%{Remove-ManagementRoleEntry -Identity "$($_.id)\$($_.name)" -Confirm:$false}
+
+Get-ManagementRoleEntry "SecurityScopeGroupsManager\*" | Where-Object {$_.Name -notlike "Get-*" -and $_.Name -notin ("Add-RoleGroupMember","Remove-RoleGroupMember","Update-RoleGroupMember")} |
+    %{Remove-ManagementRoleEntry -Identity "$($_.id)\$($_.name)" -Confirm:$false}
+
+$recipientRestrictionFilter='CommonName -like "*"'
+$managementScope=New-ManagementScope -Name "RestrictedSecurityScopeGroups" -RecipientRoot "ads.uni-passau.de/Microsoft Exchange Security Groups/RestrictedSecurityScopeGroups" -RecipientRestrictionFilter $recipientRestrictionFilter
+
+New-RoleGroup -Name zim-SecurityScopeGroupsManager -Roles SecurityScopeGroupsManager -Description "Members of this group are able to manage Group Members in ads.uni-passau.de/Microsoft Exchange Security Groups/RestrictedSecurityScopeGroups"
+
+Get-ManagementRoleAssignment -RoleAssignee zim-SecurityScopeGroupsManager | ft -AutoSize
+Set-ManagementRoleAssignment -Identity "SecurityScopeGroupsManager-zim-SecurityScopeGroupsManager" -CustomRecipientWriteScope RestrictedSecurityScopeGroups
+
+
