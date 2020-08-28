@@ -65,6 +65,8 @@ New-ManagementRole -Name "zim-ManageMailboxQuota" -Description "Enables Manageme
 #Get-ManagementRole -Identity "zim-ManageMailboxQuota" | Remove-ManagementRole
 
 
+
+
 Get-ManagementRoleEntry "Mail Recipients\*"
 
 Get-ManagementRoleEntry "zim-ManageMailboxQuota\*" | Where-Object {$_.Name -notlike "Get-*"} | %{Remove-ManagementRoleEntry -Identity "$($_.id)\$($_.name)" -Confirm:$false}
@@ -77,7 +79,13 @@ New-ManagementRoleAssignment -SecurityGroup "zim-MailboxQuotaManagement" -Role "
 
 Get-RoleGroup "zim-MailboxQuotaManagement" | fl *
 
+Get-ManagementRoleAssignment -RoleAssignee "zim-MailboxQuotaManagement"
 
+Get-ManagementRoleAssignment -RoleAssignee "zim-SelfManaged-DistributionGroupManagement" | Select Role,RoleAssigneeName,RecipientWriteScope,CustomRecipientWriteScope
+Get-ManagementRoleAssignment -RoleAssignee "Help Desk" | Select Role,RoleAssigneeName,RecipientWriteScope,CustomRecipientWriteScope
+
+(Get-ManagementRoleEntry "zim-ManageMailboxQuota\*" | Where-Object {$_.Name -eq "Set-Mailbox"}).Parameters
+(Get-ManagementRoleEntry "User Options\*")
 
 
 Get-ManagementRoleAssignment zim-ManageMailboxQuota-zim-MailboxQuotaManagement | fl *
