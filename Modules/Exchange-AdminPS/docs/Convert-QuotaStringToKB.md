@@ -1,4 +1,4 @@
-```
+﻿```
 
 NAME
     Convert-QuotaStringToKB
@@ -18,7 +18,7 @@ PARAMETER
         Dynamisch?                     false
         
     <CommonParameters>
-        Dieses Cmdlet unterst�tzt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 

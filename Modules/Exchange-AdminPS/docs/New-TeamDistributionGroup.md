@@ -1,10 +1,10 @@
-```
+ï»¿```
 
 NAME
     New-TeamDistributionGroup
     
-ÜBERSICHT
-    Erstellt Distributiongroups. Notwendige "virtual" Einträge am Postfix Server werden automatisch ergänzt
+ÃœBERSICHT
+    Erstellt Distributiongroups. Notwendige "virtual" EintrÃ¤ge am Postfix Server werden automatisch ergÃ¤nzt
     
     
 SYNTAX
@@ -14,9 +14,9 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Erstellt Distributiongroups anhand der angegebenen Parameter. Es wird überprüft ob die E-Mail-Addresse bereits existiert
-    und gegebenenfalls abgebrochen. @uni-passau.de E-Mail-Addresse wird am Postfix Server (tom) ergänzt und ein Postmap
-    durchgeführt
+    Erstellt Distributiongroups anhand der angegebenen Parameter. Es wird Ã¼berprÃ¼ft ob die E-Mail-Addresse bereits existiert
+    und gegebenenfalls abgebrochen. @uni-passau.de E-Mail-Addresse wird am Postfix Server (tom) ergÃ¤nzt und ein Postmap
+    durchgefÃ¼hrt
     
 
 PARAMETER
@@ -30,7 +30,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -Alias <Object>
-        Spezifiziert den Aliasnamen. Am besten wird Gruppenname gefolt von Unterstrich und Präfix Emailadresse verwendet (z.B.: S001_Sekretariat)
+        Spezifiziert den Aliasnamen. Am besten wird Gruppenname gefolt von Unterstrich und PrÃ¤fix Emailadresse verwendet (z.B.: S001_Sekretariat)
         
         Erforderlich?                false
         Position?                    named
@@ -57,7 +57,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -SendOnBehalfUsers <String[]>
-        Spezifiziert die Benutzer welche im Namen der DistributionGroup senden dürfen. Angabe der Benutzer mit kurzem Benutzernamen und via Komma getrennt
+        Spezifiziert die Benutzer welche im Namen der DistributionGroup senden dÃ¼rfen. Angabe der Benutzer mit kurzem Benutzernamen und via Komma getrennt
         
         Erforderlich?                true
         Position?                    named
@@ -66,7 +66,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -EmailAddresses <String[]>
-        Spezifiziert die EmailAdresse der DistributionGroup. Angabe von mehreren Emails durch Komma getrennt möglich. Die als erstes genannte EmailAdresse wird die Hauptadresse. Die Standard ADS-Adresse (z.B.: Sekretaria@ads.uni-passau.de) wird automatisch 
+        Spezifiziert die EmailAdresse der DistributionGroup. Angabe von mehreren Emails durch Komma getrennt mÃ¶glich. Die als erstes genannte EmailAdresse wird die Hauptadresse. Die Standard ADS-Adresse (z.B.: Sekretaria@ads.uni-passau.de) wird automatisch 
         erzeugt.
         
         Erforderlich?                false
@@ -84,7 +84,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 

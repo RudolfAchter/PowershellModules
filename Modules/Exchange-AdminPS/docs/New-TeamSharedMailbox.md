@@ -1,9 +1,9 @@
-```
+ï»¿```
 
 NAME
     New-TeamSharedMailbox
     
-ÜBERSICHT
+ÃœBERSICHT
     Erstellt SharedMailbox.
     
     
@@ -43,7 +43,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -EmailAddresses <String[]>
-        Spezifiziert weitere Email-Adressen welche der SharedMailbox zugeordnet werden. Die Primäre bleibt dabei die ADS-Adresse (z.B.: S001_Team@ads.uni-passau.de)
+        Spezifiziert weitere Email-Adressen welche der SharedMailbox zugeordnet werden. Die PrimÃ¤re bleibt dabei die ADS-Adresse (z.B.: S001_Team@ads.uni-passau.de)
         
         Erforderlich?                false
         Position?                    named
@@ -61,7 +61,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 

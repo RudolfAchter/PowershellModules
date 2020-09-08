@@ -1,9 +1,9 @@
-```
+ï»¿```
 
 NAME
     zimSet-MailQuota
     
-ÜBERSICHT
+ÃœBERSICHT
     Setzt verschiedene Quotas auf die Mailbox des Users.
     
     
@@ -12,7 +12,7 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Mit diesem Cmdlet werden die Quotas für Warning, ProhibitSend sowie ProhibitSendReceive auf die Mailboxen der übergebenen Benutzer eingestellt.
+    Mit diesem Cmdlet werden die Quotas fÃ¼r Warning, ProhibitSend sowie ProhibitSendReceive auf die Mailboxen der Ã¼bergebenen Benutzer eingestellt.
     
 
 PARAMETER
@@ -26,7 +26,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 
@@ -57,7 +57,7 @@ AUSGABEN
     
     PS C:\>zimSet-MailQuota -QuotaUser (Get-ChildItem Users.txt)
     
-    Übergeben einer Textdatei in der die Benutzer aufgelistet sind. Pro Zeile nur ein Benutzer zulässig.
+    Ãœbergeben einer Textdatei in der die Benutzer aufgelistet sind. Pro Zeile nur ein Benutzer zulÃ¤ssig.
     
     
     

@@ -1,9 +1,9 @@
-```
+ï»¿```
 
 NAME
     Connect-Exchange
     
-ÜBERSICHT
+ÃœBERSICHT
     Verbindet sich mit einem Exchange Server zur Administration.
     Du musst Exchange Admin bzw Domain Admin sein.
     
@@ -13,9 +13,9 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Das Commandlet verbindet sich über PS-Remoting mit einem Exchange Server.
+    Das Commandlet verbindet sich Ã¼ber PS-Remoting mit einem Exchange Server.
     Die notwendigen Module zur Administration werden vom Exchange Server geladen
-    es muss keine zusätzliche Software an deinem Client installiert werden
+    es muss keine zusÃ¤tzliche Software an deinem Client installiert werden
     
 
 PARAMETER
@@ -36,7 +36,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 

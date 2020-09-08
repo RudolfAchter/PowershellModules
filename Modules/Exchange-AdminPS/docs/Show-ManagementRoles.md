@@ -1,9 +1,9 @@
-```
+ï»¿```
 
 NAME
     Show-ManagementRoles
     
-ÜBERSICHT
+ÃœBERSICHT
     Zeigt Exchange Management Rechte eines Users an
     
     
@@ -16,7 +16,7 @@ BESCHREIBUNG
 
 PARAMETER
     -ExUser <Object>
-        AdUser für den die Rechte angezeigt werden sollen. Kann Via Pipe übergeben werden
+        AdUser fÃ¼r den die Rechte angezeigt werden sollen. Kann Via Pipe Ã¼bergeben werden
         
         Erforderlich?                false
         Position?                    1
@@ -25,7 +25,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -Details [<SwitchParameter>]
-        Switch ob Details angezeigt werden sollen. Bei den Details werden alle Cmdlets für die Rolle (RBAC) angezeigt
+        Switch ob Details angezeigt werden sollen. Bei den Details werden alle Cmdlets fÃ¼r die Rolle (RBAC) angezeigt
         (ManagementRoleEntries)
         
         Erforderlich?                false
@@ -35,7 +35,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 

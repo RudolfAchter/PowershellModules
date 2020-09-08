@@ -1,10 +1,10 @@
-```
+ï»¿```
 
 NAME
     Get-LdapSearchEntries
     
-ÜBERSICHT
-    Sucht nach Einträgen in einem LDAP und liefet die Search Entry Liste zurück
+ÃœBERSICHT
+    Sucht nach EintrÃ¤gen in einem LDAP und liefet die Search Entry Liste zurÃ¼ck
     
     
 SYNTAX
@@ -25,7 +25,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -Connection <Object>
-        LDAP Verbindung die für diese Query verwendet werden soll
+        LDAP Verbindung die fÃ¼r diese Query verwendet werden soll
         Default $Global:LdapConnection
         
         Erforderlich?                false
@@ -51,7 +51,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 

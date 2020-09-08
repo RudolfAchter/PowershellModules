@@ -1,10 +1,10 @@
-```
+ï»¿```
 
 NAME
     zimEnd-Update
     
-ÜBERSICHT
-    Stellt den Server vom Wartungsmodus zurück in den Online-Modus.
+ÃœBERSICHT
+    Stellt den Server vom Wartungsmodus zurÃ¼ck in den Online-Modus.
     
     
 SYNTAX
@@ -12,12 +12,12 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Stellt den Server vom Wartungsmodus zurück in den Online-Modus.
+    Stellt den Server vom Wartungsmodus zurÃ¼ck in den Online-Modus.
     
 
 PARAMETER
     <CommonParameters>
-        Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
+        Dieses Cmdlet unterstÃ¼tzt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 
