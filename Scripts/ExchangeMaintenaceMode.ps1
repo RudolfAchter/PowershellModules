@@ -10,7 +10,7 @@ Get-ExchangeServer | ForEach-Object {
 }
 
 #Fokus auf einen bestimmten Server
-$current_server="MSXPO3.ads.uni-passau.de"
+$current_server="MSXPO5.ads.uni-passau.de"
 #HubTransport ausleeren aber keine neuen Nachrichten mehr annehmen
 Set-ServerComponentState -Identity $current_server -Component HubTransport -State Draining -Requester Maintenance
 
@@ -29,7 +29,6 @@ Redirect-Message -Server $current_server -Target MSXPO1.ads.uni-passau.de -Confi
 
 
 #Hier Server Neu starten
-
 #Hier Maintenance Mode wieder aufheben
 
 Set-ServerComponentState -Identity $current_server -Component HubTransport -State Active -Requester Maintenance
