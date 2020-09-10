@@ -1,21 +1,15 @@
 <#
 .SYNOPSIS
-    Creates a new device in netbox
+    Creates a Object in Netbox
 .DESCRIPTION
     This should handle mapping a simple hashtable of values and looking up any references.
 .EXAMPLE
-    $lookup = @{
-        device_type='dcim/device-types'
-        device_role='dcim/device-roles'
-        site='organization/sites'
-        status='dcim/_choices'
-    }
     $device = @{
         name = 'example'
         serial = 'aka123457'
-        device_type = 'dl380-g9'
-        device_role = 'oracle'
-        site = 'chicago'
+        device_type = '20'
+        device_role = '85'
+        site = '5'
         status = 'active'
     }
     New-nbObject -lookup $lookup -object $device
@@ -36,7 +30,7 @@ function New-nbObject {
         [string[]]
         $CustomProperties,
 
-        #List of properties to lookup
+        #List of properties to lookup. Has errors. Maybe remove this feature
         [Parameter(ParameterSetName = 'Normal')]
         [Parameter(ParameterSetName = 'Connect')]
         [hashtable]
@@ -64,25 +58,18 @@ function New-nbObject {
     )
 
     $mapObject = @{custom_fields = @{}}
-    foreach ($property in $object.psobject.properties) {
-        $Name = $Property.name -replace '-' -replace ':'
-        $value = $Property.value
-        if ($name -in $lookup.keys) {
-            $value = ConvertTo-nbID -source $lookup[$name] -value $value
-        }
-        if ($name -in $CustomProperties) {
-            $mapObject.custom_fields[$name] = $value
-        }
-        elseif ($name -eq 'custom_fields') {
-            $mapObject.custom_fields += $value
-        }
-        else {
-            $mapObject[$name] = $value
-        }
+
+    ForEach ($key in $Object.Keys){
+        $name=$key -replace '-' -replace ':'
+        $value=$Object.$key
+        $mapObject[$name] = $value
+
     }
+
     $mapObject = New-Object -TypeName psobject -Property $mapObject
 
-    $jsondata=($mapObject | ConvertTo-Json)
-    #Issues with International Characters like German Umlaut -> so [System.Text.Encoding]::UTF8
-    Invoke-nbApi -Resource $Resource -HttpVerb POST -Body ([System.Text.Encoding]::UTF8.GetBytes($jsondata))
+    #$mapObject
+    #($mapObject | ConvertTo-Json -Compress)
+
+    Invoke-nbApi -Resource $Resource -HttpVerb POST -Body ($mapObject | ConvertTo-Json -Compress)
 }

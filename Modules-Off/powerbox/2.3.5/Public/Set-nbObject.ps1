@@ -91,10 +91,16 @@ function Set-nbObject {
     if ($Object._CustomProperties) {
         $CustomProperties += $Object._CustomProperties
     }
+    "Object"
+    $object
+    
     #Automatically rip out all of the _ properties returned by get-nbobject
     $object = $Object | Select-Object -Property * -ExcludeProperty _*
 
     $mapObject = @{custom_fields = @{}}
+
+
+
     :maploop foreach ($property in $object.psobject.properties) {
         $Name = $Property.name -replace '-' -replace ':'
         $value = $Property.value
@@ -120,14 +126,26 @@ function Set-nbObject {
             $mapObject[$name] = $value
         }
     }
+
+    "MapObject Old"
+
+    $mapObject
+
+
     $mapObject = New-Object -TypeName psobject -Property $mapObject
-    $jsondata=($mapObject | ConvertTo-Json)
+
+    "MapObject New"
+
+    $mapObject
+
+    "Patch"
+
+    $Patch
+
     if ($Patch.IsPresent) {
         #$notChanged = $mapObject | compare-object -ReferenceObject $OldObject -ExcludeDifferent -PassThru
         #$mapObject = $mapObject | Select-Object -ExcludeProperty $notChanged
-        #Issues with International Characters like German Umlaut -> so [System.Text.Encoding]::UTF8
-        return Invoke-nbApi -Resource $Resource/$id -HttpVerb Patch -Body ([System.Text.Encoding]::UTF8.GetBytes($jsondata))
+        return Invoke-nbApi -Resource $Resource/$id -HttpVerb Patch -Body ($mapObject | ConvertTo-Json)
     }
-    #Issues with International Characters like German Umlaut -> so [System.Text.Encoding]::UTF8
-    return Invoke-nbApi -Resource $Resource/$id -HttpVerb Put -Body ([System.Text.Encoding]::UTF8.GetBytes($jsondata))
+    return Invoke-nbApi -Resource $Resource/$id -HttpVerb Put -Body ($mapObject | ConvertTo-Json)
 }

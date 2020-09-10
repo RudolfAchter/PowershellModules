@@ -7272,10 +7272,25 @@ Deploy-OVA -OvfConfig $ovfconfig `
 }
 
 Set-Alias -Name Get-OvaConfigTemplateScript -Value Get-OvfConfigTemplateScript
-
-
-
 Set-Alias -Name VIM-Search-VM -Value Search-VM
+
+
+function New-VIAccount($principal) {
+    $flags = `
+        [System.Reflection.BindingFlags]::NonPublic    -bor
+        [System.Reflection.BindingFlags]::Public       -bor
+        [System.Reflection.BindingFlags]::DeclaredOnly -bor
+        [System.Reflection.BindingFlags]::Instance
+
+    $method = $global:defaultviserver.GetType().GetMethods($flags) | where { $_.Name -eq "GetClient" }
+    #where { $_.Name -eq "VMware.VimAutomation.Types.VIObjectCore.get_Client" }
+
+    $client = $method.Invoke($global:DefaultVIServer, $null)
+    Write-Output (New-Object VMware.VimAutomation.ViCore.Impl.V1.PermissionManagement.VIUserAccountImpl  -ArgumentList $principal, "", $client)
+
+}
+
+
 
 
 <#
