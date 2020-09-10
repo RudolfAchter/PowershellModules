@@ -1,9 +1,9 @@
 ﻿#
 # Modulmanifest für das Modul "PSGet_ExcelData"
 #
-# Generiert von: Achter, Rudolf <rudolf.achter@megatech-communication.de>
+# Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 13.02.2019
+# Generiert am: 10.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'ExcelData.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.1'
+ModuleVersion = '1.2'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -21,7 +21,7 @@ ModuleVersion = '1.1'
 GUID = '660fe9a5-6e59-45d7-a9ea-5d6a676152b5'
 
 # Autor dieses Moduls
-Author = 'Achter, Rudolf <rudolf.achter@megatech-communication.de>'
+Author = 'achter <Rudolf.Achter@uni-passau.de>'
 
 # Unternehmen oder Hersteller dieses Moduls
 CompanyName = 'Unbekannt'
@@ -69,7 +69,8 @@ Description = 'Funktionen um Daten aus Excel Tabellen zu extrahieren bzw weiterz
 # NestedModules = @()
 
 # Aus diesem Modul zu exportierende Funktionen. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Funktionen vorhanden sind.
-FunctionsToExport = 'Set-ExcelFocus', 'Get-ExcelFocus', 'Get-ExcelTable', 'Get-ExcelTableValidation', 'Set-ExcelTableValidation'
+FunctionsToExport = 'Set-ExcelFocus', 'Get-ExcelFocus', 'Get-ExcelTable', 
+               'Get-ExcelTableValidation', 'Set-ExcelTableValidation'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
 CmdletsToExport = @()

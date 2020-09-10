@@ -1,9 +1,9 @@
 ﻿#
 # Modulmanifest für das Modul "PSGet_Virtual-Infrastructure-Management"
 #
-# Generiert von: Achter, Rudolf <rudolf.achter@megatech-communication.de>
+# Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 13.12.2019
+# Generiert am: 10.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Virtual-Infrastructure-Management.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '4.2'
+ModuleVersion = '4.3'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -21,7 +21,7 @@ ModuleVersion = '4.2'
 GUID = '060edba7-fb7f-4b48-8ac6-53b51c753ba9'
 
 # Autor dieses Moduls
-Author = 'Achter, Rudolf <rudolf.achter@megatech-communication.de>'
+Author = 'achter <Rudolf.Achter@uni-passau.de>'
 
 # Unternehmen oder Hersteller dieses Moduls
 CompanyName = 'Unbekannt'
@@ -113,7 +113,8 @@ FunctionsToExport = 'VIM-Import-TagCategory', 'VIM-Get-VM-WithSnapshot',
                'Shutdown-BusinessServiceVM', 'Start-BusinessServiceVM', 
                'Reduce-VMCpuReservation', 'Set-DatastoreFocus', 'Set-NetworkFocus', 
                'Set-FolderFocus', 'Set-VMFocus', 'Set-VMHostFocus', 'Set-VIMFocus', 
-               'Get-VIMFocus', 'Deploy-Ovf', 'Get-OvfConfigTemplateScript','Get-VItemPath'
+               'Get-VIMFocus', 'Deploy-Ovf', 'Get-OvfConfigTemplateScript', 
+               'Get-VItemPath'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
 CmdletsToExport = @()

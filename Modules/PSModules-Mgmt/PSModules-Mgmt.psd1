@@ -1,9 +1,9 @@
 ﻿#
-# Modulmanifest für das Modul "PSGet_Megatech-PSModules"
+# Modulmanifest für das Modul "PSGet_PSModules-Mgmt"
 #
-# Generiert von: Achter, Rudolf <rudolf.achter@megatech-communication.de>
+# Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 13.12.2019
+# Generiert am: 10.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'PSModules-Mgmt.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.18'
+ModuleVersion = '1.20'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -21,7 +21,7 @@ ModuleVersion = '1.18'
 GUID = '1d6d3085-2543-4bdb-b039-a40c1e6df04e'
 
 # Autor dieses Moduls
-Author = 'Achter, Rudolf <rudolf.achter@uni-passau.de>'
+Author = 'achter <Rudolf.Achter@uni-passau.de>'
 
 # Unternehmen oder Hersteller dieses Moduls
 CompanyName = 'Unbekannt'
@@ -51,7 +51,7 @@ Description = 'Powershell Module Management'
 # ProcessorArchitecture = ''
 
 # Die Module, die vor dem Importieren dieses Moduls in die globale Umgebung geladen werden müssen
-RequiredModules = @('Mediawiki-Automation')
+# RequiredModules = @()
 
 # Die Assemblys, die vor dem Importieren dieses Moduls geladen werden müssen
 # RequiredAssemblies = @()

@@ -1,9 +1,9 @@
 ﻿#
 # Modulmanifest für das Modul "PSGet_XML-from-ExcelData"
 #
-# Generiert von: Achter, Rudolf <rudolf.achter@megatech-communication.de>
+# Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 22.02.2019
+# Generiert am: 10.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'XML-from-ExcelData.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '2.2'
+ModuleVersion = '2.3'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -21,7 +21,7 @@ ModuleVersion = '2.2'
 GUID = '2cdcef50-952b-4807-97a7-28363604aa7b'
 
 # Autor dieses Moduls
-Author = 'Achter, Rudolf <rudolf.achter@megatech-communication.de>'
+Author = 'achter <Rudolf.Achter@uni-passau.de>'
 
 # Unternehmen oder Hersteller dieses Moduls
 CompanyName = 'Unbekannt'

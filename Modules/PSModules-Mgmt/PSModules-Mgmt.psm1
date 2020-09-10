@@ -107,6 +107,8 @@ Function Publish-PowershellModule {
         $MajorRelease,
 
         [switch]$FunctionsExportToDefault,
+        [ValidateSet("markup","mediawiki")]
+        $DocumentFormat="markup",
         [switch]$NoDocument
     )
 
@@ -129,7 +131,7 @@ Function Publish-PowershellModule {
     $author_string=$current_aduser.Name + ' <' + $current_aduser.mail + '>'
 
     if(-not $NoDocument){
-        Document-PowershellModule -Module $module_name
+        Document-PowershellModule -Module $module_name -Format $DocumentFormat
     }
 
     #Existiert schon ein Manifest
@@ -321,7 +323,7 @@ Function Document-PowershellModule {
         ValueFromPipeline=$true)]
         $Module,
         [ValidateSet("mediawiki","markup")]
-        $Format,
+        $Format="markup",
         $SubpagePrefix="Scripts/Powershell/"
     )
 

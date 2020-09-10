@@ -1,17 +1,17 @@
 #Aus: https://technet.microsoft.com/de-de/magazine/hh855069.aspx
-#Stellt Cmdlets zur Verfügung mit denen SQL Queries durchgeführt werden können
+#Stellt Cmdlets zur Verfï¿½gung mit denen SQL Queries durchgefï¿½hrt werden kï¿½nnen
 
 <#
 .SYNOPSIS
-    Führt Datenbankabfragen durch
+    Fï¿½hrt Datenbankabfragen durch
 .DESCRIPTION
-    Verbindet sich mittels ConnectionString zu einer Datenbank und führt dort eine Query aus.
+    Verbindet sich mittels ConnectionString zu einer Datenbank und fï¿½hrt dort eine Query aus.
     Mit Integrated Security=SSPI bist du mit deinem Windows User angemeldet. Ansonsten einen
-    Connection String bauen der für die entsprechende Verbindung zuständig ist.
+    Connection String bauen der fï¿½r die entsprechende Verbindung zustï¿½ndig ist.
 .PARAMETER connectionString
     Connection String zu einer Datenbank
 .PARAMETER query
-    Auszuführende SQL Query
+    Auszufï¿½hrende SQL Query
 .PARAMETER isSQLServer
     isSQLServer true oder false. Wenn false dann ist die Verbindung eine OleDB Mode Verbindung
 .EXAMPLE
@@ -32,6 +32,7 @@
     Author: Rudolf Achter
     Date:   2015-10-01
 #>
+<#
  function Get-DatabaseData {
 	[CmdletBinding()]
 	param (
@@ -58,6 +59,82 @@
 	$out=$adapter.Fill($dataset)
 	$dataset.Tables[0]
 }
+#>
+function Get-DatabaseData {
+<#
+.SYNOPSIS
+    FÃ¼hrt Datenbankabfragen durch
+.DESCRIPTION
+    Verbindet sich mittels ConnectionString zu einer Datenbank und fÃ¼hrt dort eine Query aus.
+    Mit Integrated Security=SSPI bist du mit deinem Windows User angemeldet. Ansonsten einen
+    Connection String bauen der fÃ¼r die entsprechende Verbindung zustÃ¼ndig ist.
+.PARAMETER connectionString
+	Connection String zu einer Datenbank
+	(Ich hÃ¤tte gern noch ein CMDlet Get-ConnectionString um das erstellen von Connection Strings
+	zu vereinfachen)
+.PARAMETER query
+    AuszufÃ¼hrende SQL Query
+.PARAMETER isSQLServer
+    isSQLServer true oder false. Wenn false dann ist die Verbindung eine OleDB Mode Verbindung
+
+.PARAMETER isOleDB
+Verbindet sich mit einer OleDB Verbindung. 
+Der Connection String muss dann fÃ¼r eine Ole DB Verbindung verwendet werden
+
+.PARAMETER isSQLServer
+FÃ¼r KompatibilitÃ¤t fÃ¼r die alte Get-DatabaseData Funktion
+isSQLServer true oder false. Wenn false dann ist die Verbindung eine OleDB Mode Verbindung
+(Ãœberschreibt isOleDB)
+
+.EXAMPLE
+$conn = "Server=deslnsql2008srv;Database=RAC_LogRestore_Test;Integrated Security=SSPI"
+$query = "Select * From ractest"
+$data = Get-DatabaseData -connectionString $conn -query $query -isSQLServer:$true
+$data | Select-Object -First 10 | Format-Table -AutoSize
+
+.NOTES
+General notes
+#>
+
+	[CmdletBinding()]
+	param(
+		[string]$connectionString,
+		[string]$query,
+		[switch]$isOleDB,
+		[switch]$isSQLServer
+	)
+
+	#FÃ¼r KompatibilitÃ¤t fÃ¼r die alte Get-DatabaseData Funktion
+	if($isSQLServer -eq $true){$isOleDB=$false}
+
+	if ($isOleDB) {
+		Write-Verbose 'in OleDB mode'
+		$conn = New-Object -TypeName System.Data.OleDb.OleDbConnection($connectionString)
+	} else {
+		Write-Verbose 'in SQL Server mode'
+		$conn = New-Object -TypeName System.Data.SqlClient.SqlConnection($connectionString)
+	}
+
+	$conn.Open()
+
+	$sqlcmd = New-Object "System.Data.SqlClient.SqlCommand"($query,$conn)
+	$reader=$sqlcmd.ExecuteReader()
+
+	$i=0
+	
+	#FÃ¼r Jede Zeile
+	#Alle Spalten mit Spaltennamen als Powershell Obekt ausgeben
+	while($reader.read()){
+		$h_vals=[ordered]@{}
+		for($j=0; $j -lt $reader.FieldCount ;$j++){
+			$h_vals.Add($reader.GetName($j),$reader.GetValue($j))
+		}
+		New-Object -TypeName "PSObject" -Property $h_vals
+	}
+
+	$reader.Close()
+
+}
 
 #//XXX muss noch dokumentiert werden
 
@@ -81,4 +158,27 @@ function Invoke-DatabaseQuery {
 	$connection.Open()
 	$command.ExecuteNonQuery()
 	$connection.close()
+}
+
+function Get-ConnectionString {
+	param(
+		[ValidateSet("SQL","Windows")]
+		$Type,
+		$Hostname,
+		$Database,
+		$User,
+		$Password
+	)
+
+	Switch($Type) {
+		"SQL"{
+			("Server=$Hostname;Database=$Database;User Id=$User;Password=$Password")
+			break
+		}
+		"Windows"{
+			("Server=$Hostname;Database=$Database;Integrated Security=SSPI")
+			break
+		}
+	}
+
 }

@@ -18,6 +18,138 @@ Author - Peter Löfgren
 $global:SignatureTemplatesPath="\\file.megatech.local\ALLE\ALLGEMEIN\Vorlagen\E-Mail-Signatur"
 
 
+$global:ad_a_load_properties=@(
+    'name',
+    'sn',
+    'givenName',
+    'displayName',
+    'middleName',
+    'telephoneNumber',
+    'title',
+    'facsimileTelephoneNumber',
+    'mobile',
+    'company',
+    'streetAddress',
+    'postalCode',
+    'l',
+    'co',
+    'mail',
+    'postOfficeBox',
+    'distinguishedName',
+    'roomNumber'
+    'photo'
+)
+
+for($i=1;$i -le 15; $i++){
+    $global:ad_a_load_properties+='extensionAttribute'+[string]$i
+}
+
+
+Function Get-ADUser-from-DirectorySearcher {
+<#
+.SYNOPSIS
+    Liefert einen ADUser mit Hilfe der .Net Klasse System.DirectoryServices.DirectorySearcher
+    Somit wird Get-ADUser aus den RSAT Tools nicht benötigt
+.PARAMETER UserName
+    samAccountName des Users
+#>
+    param(
+        $UserName
+    )
+
+    $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+
+
+    $a_load_properties=$global:ad_a_load_properties
+        
+
+    ForEach($prop in $a_load_properties){
+        $result=$Searcher.PropertiesToLoad.Add($prop)
+    }
+
+
+    #$SearchUserEmail=$UserName+"@"+$Domain
+
+
+    $Filter = "(&(objectCategory=User)(samAccountName=$UserName))"
+    $Searcher.Filter = $Filter
+
+    $ADUserPath = $Searcher.FindOne()
+    $ADUser = $ADUserPath.GetDirectoryEntry()
+
+    $ADPhone = $ADUser.telephoneNumber -replace '(\+49)([0-9]{4})([0-9]{4})([0-9]{3})','$1 $2 $3 - $4'
+
+    $ADUser | Add-Member -MemberType NoteProperty -Name "telephoneNumberPrettyPrint" -Value $ADPhone -Force
+
+    $ADUser
+
+}
+
+Function Get-ADUser-SignatureProperties {
+<#
+.SYNOPSIS
+    Liefert die Properties eines Users die für eine E-Mail Signatur verwendet werden können
+.DESCRIPTION
+    Standardmäßig werden die Werte für die E-Mail-Signatur des aktuell angemeldeten Users angezeigt
+    Als Parameter kann ein anderer User übergeben werden
+.PARAMETER UserName
+    User dessen Werte angezeigt werden sollen (samAccountName)
+.PARAMETER Domain
+    Domain in der wir arbeiten (bei uns Standardmäßig megatech-communication.de)
+#>
+    param(
+        $UserName=$env:username
+    )
+    
+    $a_show_props=@(
+        'name',
+        'sn',
+        'givenName',
+        'displayName',
+        'middleName',
+        'telephoneNumber',
+        'telephoneNumberPrettyPrint',
+        'title',
+        'facsimileTelephoneNumber',
+        'mobile',
+        'company',
+        'streetAddress',
+        'postalCode',
+        'l',
+        'co',
+        'mail',
+        'postOfficeBox',
+        'distinguishedName',
+        'roomNumber'
+        
+    )
+
+    for($i=1;$i -le 15; $i++){
+        $a_show_props+='extensionAttribute'+[string]$i
+    }
+
+
+    $user=Get-ADUser-from-DirectorySearcher -UserName $UserName
+
+    $user | Select $a_show_props
+        
+}
+
+Function Show-SignatureTemplate{
+    param(
+        $UserName=$env:username
+    )
+
+    $props=Get-ADUser-SignatureProperties -UserName $UserName
+
+    $props.PSObject.Properties | ForEach-Object {
+        "{0,-50}{1,-50}" -f ("{{"+$_.Name+"}}"), ($_.Value -join ";")
+    }
+}
+
+
+
+Function Get-OutlookSignature{
 <#
 .SYNOPSIS
     Generiert E-Mail Signaturen anhand von HTML Templates die unter $SignatureTemplatesPath
@@ -30,14 +162,13 @@ $global:SignatureTemplatesPath="\\file.megatech.local\ALLE\ALLGEMEIN\Vorlagen\E-
     Von hier werden die Templates genommen. Als Namenskonvention haben die Templates:
     *.template.htm
 #>
-Function Get-OutlookSignature{
     [CmdletBinding()]
     param(
         [Parameter(
         Position=0, 
-        Mandatory=$true, 
+        Mandatory=$false, 
         ValueFromPipeline=$true)]
-        $User,
+        $User=$env:username,
 
         $TargetPath=$env:APPDATA+"\microsoft\signatures",
         $SignatureTemplatesPath=$global:SignatureTemplatesPath
@@ -55,34 +186,16 @@ Function Get-OutlookSignature{
             $UserName=$_
 
             #$UserPhoto = "Rudolf Achter.png"
-            $SignatureName = "MEGATECH Signature"
-            $SignatureNameWoPic = $SignatureName + " ohne Foto"
-            $DefaultSignature=$SignatureNameWoPic
-
-            $SearchUserEmail=$UserName+"@megatech-communication.de"
-
-
-            $Filter = "(&(objectCategory=User)(|(samAccountName=$UserName)(mail=$SearchUserEmail)))"
-            $Searcher = New-Object System.DirectoryServices.DirectorySearcher
-            $Searcher.Filter = $Filter
-            $ADUserPath = $Searcher.FindOne()
-            $ADUser = $ADUserPath.GetDirectoryEntry()
-            $ADDisplayName = $ADUser.DisplayName
+            #$SignatureName = "MEGATECH Signature"
+            #$SignatureNameWoPic = $SignatureName + " ohne Foto"
+            #$DefaultSignature=$SignatureNameWoPic
+            $ADUser=Get-ADUser-from-DirectorySearcher -UserName $UserName
+            
             $ADGivenName = $ADUser.givenName
             $ADSurname = $ADUser.sn
             $ADTitle = $ADUser.Title
-            $ADMobile = $ADUser.Mobile
-            $ADFax = $ADUser.facsimileTelephoneNumber
             #Telefonnummer für Menschen lesbar formatiert zurückgeben
             $AdPhone = $ADUser.telephoneNumber -replace '(\+49)([0-9]{4})([0-9]{4})([0-9]{3})','$1 $2 $3 - $4'
-            $AdCompany = $ADUser.company
-            $AdStreet = $ADUser.streetAddress
-            $AdZip = $ADUser.postalCode
-            $AdLocation = $ADUser.l
-            $AdCountry = $ADUser.co
-            $ADemail = $ADUser.mail
-            $ADBox = $ADUser.postOfficeBox
-
 
             #Create the actual file
             if (!(Test-Path -Path $TargetPath)){ mkdir $TargetPath}
@@ -144,16 +257,16 @@ Function Get-OutlookSignature{
                     <#
                         Alle ADAttribute können im Template verwendet werden
                         In der Form:
-                        {{ADattr:attributeName}}
+                        {{attributeName}}
                     #>
                     ForEach ($prop in $ADUser.PSObject.Properties){
                         if($prop.Value -ne $null){
-                            if($prop.Value.GetType().Name -eq "PropertyValueCollection"){
+                            #if($prop.Value.GetType().Name -eq "PropertyValueCollection" -or $prop.Value.GetType().Name -eq "String"){
                                 #Für alle Properties durchführen
-                                $TemplateVar=("{{ADattr:"+$prop.Name+"}}")
+                                $TemplateVar=("{{"+$prop.Name+"}}")
                                 Write-Verbose  ("Replace '$TemplateVar' with '"+$prop.Value+"'")
                                 $Html=$Html -replace $TemplateVar, $prop.Value
-                            }
+                            #}
                         }
                     }
 
@@ -255,8 +368,15 @@ Function Show-SignatureIndex {
     Start-Process -FilePath (ConvertTo-FileUri(Get-SignatureIndex -TargetPath ($env:Temp+"\OutlookSignatureIndex")).FullName)
 }
 
+<#
+//XXX Todo
+es braucht hier was für TXT RTF Signaturen
+
+* https://gallery.technet.microsoft.com/scriptcenter/Create-an-RTF-document-333dfe26
+#>
 
 
+Function Create-MyOutlookSignature {
 <#
 .SYNOPSIS
     Erstellt Outlook Signaturen anhand eigener ActiveDirectory Informationen.
@@ -277,10 +397,7 @@ Function Show-SignatureIndex {
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Outlook-Automation.psm1/Create-MyOutlookSignature
 #>
-Function Create-MyOutlookSignature {
     [CmdletBinding()]
-
-
     param(
         [switch]$SetAsDefault,
         [switch]$SetAsDefaultAnswer,
@@ -359,6 +476,8 @@ function ConvertTo-FileUri {
 
 #https://stackoverflow.com/questions/24044681/powershell-open-email-draft-with-signature
 
+
+Function New-OutlookMail{
 <#
 .SYNOPSIS
     Verschickt eine E-Mail mit Outlook
@@ -380,10 +499,12 @@ function ConvertTo-FileUri {
 .PARAMETER Send
     Switch zu versenden der Mail. Wenn "Send" nicht angegeben ist öffnet sich lediglich Outlook mit der
     E-Mail. Die E-Mail kann dann nochmal betrachtet und dann manuell versendet werden.  
+.EXAMPLE
+    #Über Wartungsarbeiten an einem ESX-Host informieren (z.B.)
+    Get-VM | ? PowerState -eq "PoweredOn" | VIM-Get-VMValue | Select Name,Ansprechpartner,Applikation,Notes| ConvertTo-StyledHTML | New-OutlookMail -Subject "Test VMs werden pausiert"
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Outlook-Automation.psm1/New-OutlookMail
 #>
-Function New-OutlookMail{
     [CmdletBinding()]
     param(
         [Parameter( Mandatory=$true, ValueFromPipeline=$true)]
