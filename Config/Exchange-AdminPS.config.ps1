@@ -14,7 +14,7 @@ $Global:Postfix=@{
 }
 
 $Global:SSH=@{
-    PrivateKeyFile="$env:USERPROFILE\Documents\ssh\ac.openssh.key"
+    PrivateKeyFile="$env:USERPROFILE\Documents\ssh\openssh.key"
 }
 
 $Global:Exchange=@{
