@@ -4,7 +4,8 @@ NAME
     Search-PostfixTable
     
 SYNTAX
-    Search-PostfixTable [[-PostfixHost] <Object>] [[-PostfixTable] {Virtual | SenderCanonical}] [[-Search] <Object>] [[-SSHPrivateKey] <Object>]  [<CommonParameters>]
+    Search-PostfixTable [[-PostfixHost] <Object>] [[-PostfixTable] {Virtual | SenderCanonical}] [[-Search] <Object>] 
+    [[-SSHPrivateKey] <Object>]  [<CommonParameters>]
     
     
 PARAMETER

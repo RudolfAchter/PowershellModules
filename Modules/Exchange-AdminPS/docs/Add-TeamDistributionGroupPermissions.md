@@ -4,7 +4,8 @@ NAME
     Add-TeamDistributionGroupPermissions
     
 SYNTAX
-    Add-TeamDistributionGroupPermissions [[-Team] <Object>] [[-DistributionGroup] <Object>] [[-Owner] <Object>] [[-Member] <Object>] [[-SendAs] <Object>] [[-SendOnBehalf] <Object>]  
+    Add-TeamDistributionGroupPermissions [[-Team] <Object>] [[-DistributionGroup] <Object>] [[-Owner] <Object>] 
+    [[-Member] <Object>] [[-SendAs] <Object>] [[-SendOnBehalf] <Object>]  
     
     
 PARAMETER

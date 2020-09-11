@@ -12,7 +12,8 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Stellt den Server in den Wartungsmodus, z. B. für Updates, wobei per Parameter geregelt werden kann, auf welchen Server die Queue umverteilt werden soll.
+    Stellt den Server in den Wartungsmodus, z. B. für Updates, wobei per Parameter geregelt werden kann, auf welchen 
+    Server die Queue umverteilt werden soll.
     
 
 PARAMETER

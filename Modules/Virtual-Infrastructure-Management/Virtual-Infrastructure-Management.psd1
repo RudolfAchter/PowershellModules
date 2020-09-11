@@ -3,7 +3,7 @@
 #
 # Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 10.09.2020
+# Generiert am: 11.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Virtual-Infrastructure-Management.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '4.3'
+ModuleVersion = '4.4'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -30,7 +30,7 @@ CompanyName = 'Unbekannt'
 Copyright = '(c) 2019 Achter, Rudolf <rudolf.achter@megatech-communication.de>. Alle Rechte vorbehalten.'
 
 # Beschreibung der von diesem Modul bereitgestellten Funktionen
-Description = 'Virtual Infrastructure Management and Addons by rudolf.achter@megatech-communication.de'
+Description = 'VMWare Virtual Infrastructure Management and Addons'
 
 # Die für dieses Modul mindestens erforderliche Version des Windows PowerShell-Moduls
 # PowerShellVersion = ''

@@ -47,9 +47,11 @@ AUSGABEN
     
     
 VERWANDTE LINKS
-    https://docs.microsoft.com/de-de/powershell/exchange/connect-to-exchange-servers-using-remote-powershell?view=exchange-ps
+    https://docs.microsoft.com/de-de/powershell/exchange/connect-to-exchange-servers-using-remote-powershell?view=excha
+    nge-ps
     https://www.msxfaq.de/code/powershell/psexremote.htm
-    https://social.technet.microsoft.com/Forums/ie/en-US/529bd0ef-5e88-4808-a5ac-dc07ca8660f3/importpssession-is-not-importing-cmdlets-when-used-in-a-custom-module?forum=winserverpowershell
+    https://social.technet.microsoft.com/Forums/ie/en-US/529bd0ef-5e88-4808-a5ac-dc07ca8660f3/importpssession-is-not-im
+    porting-cmdlets-when-used-in-a-custom-module?forum=winserverpowershell
 
 
 

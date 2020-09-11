@@ -8,7 +8,8 @@ NAME
     
     
 SYNTAX
-    Connect-LDAP [[-BindCredential] <Object>] [[-LdapHost] <Object>] [[-LdapPort] <Object>] [[-LdapVersion] <Object>] [-LdapSSL] [<CommonParameters>]
+    Connect-LDAP [[-BindCredential] <Object>] [[-LdapHost] <Object>] [[-LdapPort] <Object>] [[-LdapVersion] <Object>] 
+    [-LdapSSL] [<CommonParameters>]
     
     
 BESCHREIBUNG

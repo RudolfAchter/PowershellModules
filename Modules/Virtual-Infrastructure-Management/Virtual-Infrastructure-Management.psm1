@@ -57,35 +57,23 @@ PREREQUISITES
 
 #>
 
-$global:mail_smtp_server="exchange.megatech.local"
-$global:mail_sender="virtual-infrastructure-management@megatech-communication.de"
+$Global:PowershellConfigDir=($env:USERPROFILE + "\Documents\WindowsPowerShell\Config")
+
+If (-not (Test-Path $Global:PowershellConfigDir)){
+    mkdir $Global:PowershellConfigDir
+}
+
+#Konfig File schreiben
+
+If(-not (Test-Path ($Global:PowershellConfigDir + "\" + $global:thisModuleName + ".config.ps1"))){
+    Set-Content -Path ($Global:PowershellConfigDir + "\" + $global:thisModuleName + ".config.ps1") -Value (@'
+
+
+
+$global:mail_smtp_server="mail.yourdomain.local"
+$global:mail_sender="virtual-infrastructure-management@yourdomain.local"
 #//XXX ToDO in Zukunft durch $global:vim_ad_admingroup E-Mail-Addressen ersetzen
-$global:mail_default_recipient="rudolf.achter@megatech-communication.de"
-
-
-$global:vim_custom_attributes =     @(
-                                   #@{  "Name" = "Ansprechpartner";       "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.DateCreated";                "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.DateUsedUntil";              "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.CreationMethod";             "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.CreationUser";               "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.ArchiveOrigDatastore";      "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.ArchiveDateArchived";       "TargetType" = @("VMHost", "VirtualMachine")}
-                                    @{  "Name" = "VIM.ArchiveOrigFolderPath";       "TargetType" = @("VMHost", "VirtualMachine")}
-                                    )
-<#
-$global:vim_tags
-Tag Kategorien die für alle VMs benötigt werden
-ACHTUNG nur für die virtuellen Maschinen selbst
-#>
-$global:vim_tags = @(
-                        "Ansprechpartner"
-                        "Creator"
-                        "Applikation"
-                        "Stage"
-                        "Kunde"
-                        "Backup Plan"
-                    )
+$global:mail_default_recipient="yourrecipient@yourdomain.local"
 
 
 $global:vim_VM_DaysToUsedUntil=30
@@ -94,7 +82,7 @@ $global:vim_VM_DaysToUsedUntil=30
 $global:vim_ad_domain
     Mit dieser Active Directory Domain wird gearbeitet
 #>
-$global:vim_ad_domain="MEGATECH.LOCAL"
+$global:vim_ad_domain="yourdomain.local"
 
 <#
     $global:vim_ad_groups
@@ -127,7 +115,43 @@ $global:vim_archive_user_role="Virtual Machine Deployer NoStart"
     $global:vim_backup_path
     Pfad in den alle Backups gesichert werden
 #>
-$global:vim_backup_path="\\deslnsrvbackup\Image\VMWare"
+$global:vim_backup_path="\\path\to\your\backup"
+'@)
+}
+#Wenn Konfig File bereits existiert, Konfig File holen
+else{
+. ($Global:PowershellConfigDir + "\" + $global:thisModuleName + ".config.ps1")
+}
+
+
+
+
+
+#Das Bleibt gleich
+
+$global:vim_custom_attributes =     @(
+                                   #@{  "Name" = "Ansprechpartner";       "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.DateCreated";                "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.DateUsedUntil";              "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.CreationMethod";             "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.CreationUser";               "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.ArchiveOrigDatastore";      "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.ArchiveDateArchived";       "TargetType" = @("VMHost", "VirtualMachine")}
+                                    @{  "Name" = "VIM.ArchiveOrigFolderPath";       "TargetType" = @("VMHost", "VirtualMachine")}
+                                    )
+<#
+$global:vim_tags
+Tag Kategorien die für alle VMs benötigt werden
+ACHTUNG nur für die virtuellen Maschinen selbst
+#>
+$global:vim_tags = @(
+                        "Ansprechpartner"
+                        "Creator"
+                        "Applikation"
+                        "Stage"
+                        "Kunde"
+                        "Backup Plan"
+                    )
 
 <#
     $global:vim_focus
@@ -147,6 +171,7 @@ Progress IDs für Write-Progess
 #>
 $global:progress_vm_count=1
 $global:progress_cur_action=2
+
 
 
 #Types Beginn##############################################

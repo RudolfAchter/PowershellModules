@@ -3,40 +3,34 @@
 NAME
     Get-AutoMapping
     
+ÜBERSICHT
+    Liefert ADObject Einträge für die Exchange Mailbox Automapping aktiv ist
+    
+    
 SYNTAX
-    Get-AutoMapping [-Mailbox] <Object>  [<CommonParameters>]
+    Get-AutoMapping [<CommonParameters>]
     
     
+BESCHREIBUNG
+    In Exchange Mailboxen wird im LdapAttribut msExchDelegateListLink gespeichert für wen
+    Automapping aktiv ist. Genauer gesagt wird hier die Liste gespeichert an wen dieses
+    Objekt "delegiert" wird.
+    Es werden alle Objekte geholt bei denen ein Automapping gefunden wird
+    
+
 PARAMETER
-    -Mailbox <Object>
-        
-        Erforderlich?                true
-        Position?                    0
-        Pipelineeingaben akzeptieren?true (ByValue)
-        Name des Parametersatzes           (Alle)
-        Aliase                      Keine
-        Dynamisch?                     false
-        
     <CommonParameters>
         Dieses Cmdlet unterstützt folgende allgemeine Parameter: Verbose, Debug,
         ErrorAction, ErrorVariable, WarningAction, WarningVariable,
         OutBuffer, PipelineVariable und OutVariable. Weitere Informationen finden Sie unter 
         "about_CommonParameters" (https:/go.microsoft.com/fwlink/?LinkID=113216). 
     
-    
 EINGABEN
-    System.Object
-    
     
 AUSGABEN
-    System.Object
     
-ALIASE
-    Keine
     
-
-HINWEISE
-    Keine
+VERWANDTE LINKS
 
 
 

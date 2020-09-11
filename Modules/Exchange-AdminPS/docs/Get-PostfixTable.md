@@ -4,7 +4,8 @@ NAME
     Get-PostfixTable
     
 SYNTAX
-    Get-PostfixTable [[-PostfixHost] <Object>] [[-PostfixTable] {Virtual | SenderCanonical}] [[-SSHPrivateKey] <Object>]  [<CommonParameters>]
+    Get-PostfixTable [[-PostfixHost] <Object>] [[-PostfixTable] {Virtual | SenderCanonical}] [[-SSHPrivateKey] 
+    <Object>]  [<CommonParameters>]
     
     
 PARAMETER

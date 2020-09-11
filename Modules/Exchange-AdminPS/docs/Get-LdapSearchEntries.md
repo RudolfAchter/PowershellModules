@@ -8,7 +8,8 @@ NAME
     
     
 SYNTAX
-    Get-LdapSearchEntries [[-cn] <Object>] [[-Connection] <Object>] [[-BaseDN] <Object>] [[-Filter] <Object>] [<CommonParameters>]
+    Get-LdapSearchEntries [[-cn] <Object>] [[-Connection] <Object>] [[-BaseDN] <Object>] [[-Filter] <Object>] 
+    [<CommonParameters>]
     
     
 BESCHREIBUNG

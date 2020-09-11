@@ -4,7 +4,8 @@ NAME
     New-PostfixEntry
     
 SYNTAX
-    New-PostfixEntry [[-PostfixTable] {Virtual | SenderCanonical}] [[-Entry] <Object>] [[-Session] <Object>]  [<CommonParameters>]
+    New-PostfixEntry [[-PostfixTable] {Virtual | SenderCanonical}] [[-Entry] <Object>] [[-Session] <Object>]  
+    [<CommonParameters>]
     
     
 PARAMETER

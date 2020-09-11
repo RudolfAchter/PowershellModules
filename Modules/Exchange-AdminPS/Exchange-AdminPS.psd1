@@ -1,9 +1,9 @@
 ﻿#
 # Modulmanifest für das Modul "PSGet_Exchange-AdminPS"
 #
-# Generiert von: Achter, Rudolf <rudolf.achter@megatech-communication.de>
+# Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 24.09.2019
+# Generiert am: 10.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Exchange-AdminPS.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.2'
+ModuleVersion = '1.3'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -21,7 +21,7 @@ ModuleVersion = '1.2'
 GUID = 'a96a23a3-639d-47f2-8a6c-d1ef62eadf16'
 
 # Autor dieses Moduls
-Author = 'Achter, Rudolf <rudolf.achter@megatech-communication.de>'
+Author = 'achter <Rudolf.Achter@uni-passau.de>'
 
 # Unternehmen oder Hersteller dieses Moduls
 CompanyName = 'Unbekannt'
@@ -72,13 +72,13 @@ Description = 'Helper Modul für Exchange Administration aus normaler Powershell
 FunctionsToExport = '*'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
-CmdletsToExport = @()
+CmdletsToExport = '*'
 
 # Die aus diesem Modul zu exportierenden Variablen
 # VariablesToExport = @()
 
 # Aus diesem Modul zu exportierende Aliase. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Aliase vorhanden sind.
-AliasesToExport = @()
+AliasesToExport = '*'
 
 # Aus diesem Modul zu exportierende DSC-Ressourcen
 # DscResourcesToExport = @()

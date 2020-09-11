@@ -36,7 +36,8 @@ AUSGABEN
     
     PS C:\>Get-Mailbox V012_Team | Get-MailboxCalendarPermission
     
-    Add-MailboxFolderPermission -Identity V012_Team@ads.uni-passau.de:\Kalender -User achter@ads.uni-passau.de -AccessRights Editor
+    Add-MailboxFolderPermission -Identity V012_Team@ads.uni-passau.de:\Kalender -User achter@ads.uni-passau.de 
+    -AccessRights Editor
     
     
     

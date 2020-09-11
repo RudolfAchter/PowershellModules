@@ -8,24 +8,32 @@ NAME
     
     
 SYNTAX
-    Get-MessageTrackingAllLogs [[-Sender] <Object>] [[-Recipient] <Object>] [[-Start] <Object>] [[-End] <Object>] [[-EventId] <String>] [[-InternalMessageId] <Object>] [[-MessageId] <Object>] [[-MessageSubject] <Object>] [[-Recipients] <Object>] 
-    [[-Reference] <Object>] [[-DomainController] <Object>] [[-ResultSize] <Object>] [-OnlySendEvents] [<CommonParameters>]
+    Get-MessageTrackingAllLogs [[-Sender] <Object>] [[-Recipient] <Object>] [[-Start] <Object>] [[-End] <Object>] 
+    [[-EventId] <String>] [[-InternalMessageId] <Object>] [[-MessageId] <Object>] [[-MessageSubject] <Object>] 
+    [[-Recipients] <Object>] [[-Reference] <Object>] [[-DomainController] <Object>] [[-ResultSize] <Object>] 
+    [-OnlySendEvents] [<CommonParameters>]
     
     
 BESCHREIBUNG
-    Für den Transportdienst auf einem Postfachserver sowie für den Postfachtransportdienst auf einem Postfachserver und auf einem Edge-Transport-Server ist ein eindeutiges 
-    Nachrichtenverfolgungsprotokoll vorhanden. Das Nachrichtenverfolgungsprotokoll ist eine CSV-Datei (Comma-Separated Value, durch Kommas getrennte Werte), die ausführliche Informationen 
+    Für den Transportdienst auf einem Postfachserver sowie für den Postfachtransportdienst auf einem Postfachserver 
+    und auf einem Edge-Transport-Server ist ein eindeutiges 
+    Nachrichtenverfolgungsprotokoll vorhanden. Das Nachrichtenverfolgungsprotokoll ist eine CSV-Datei (Comma-Separated 
+    Value, durch Kommas getrennte Werte), die ausführliche Informationen 
     zum Verlauf jeder E-Mail enthält, die einen Exchange-Server durchläuft.
     
-    Die in den Ergebnissen des Cmdlets Get-MessageTrackingLog angezeigten Feldnamen ähneln den tatsächlichen Feldnamen, die in den Nachrichtenverfolgungsprotokollen verwendet werden. Es 
+    Die in den Ergebnissen des Cmdlets Get-MessageTrackingLog angezeigten Feldnamen ähneln den tatsächlichen 
+    Feldnamen, die in den Nachrichtenverfolgungsprotokollen verwendet werden. Es 
     gibt folgende Unterschiede:
     
-    * Die Striche werden aus den Feldnamen entfernt. Beispiel: internal-message-id wird angezeigt als InternalMessageId.
+    * Die Striche werden aus den Feldnamen entfernt. Beispiel: internal-message-id wird angezeigt als 
+    InternalMessageId.
     * Das Feld date-time wird angezeigt als Timestamp.
     * Das Feld recipient-address wird als Recipients angezeigt.
     * Das Feld sender-address wird als Sender angezeigt.
-    Bevor Sie dieses Cmdlet ausführen können, müssen Ihnen die entsprechenden Berechtigungen zugewiesen werden. In diesem Thema sind zwar alle Parameter für das Cmdlet aufgeführt, aber Sie 
-    verfügen möglicherweise nicht über Zugriff auf einige Parameter, falls diese nicht in den Ihnen zugewiesenen Berechtigungen enthalten sind. Informationen zu den von Ihnen benötigten 
+    Bevor Sie dieses Cmdlet ausführen können, müssen Ihnen die entsprechenden Berechtigungen zugewiesen werden. In 
+    diesem Thema sind zwar alle Parameter für das Cmdlet aufgeführt, aber Sie 
+    verfügen möglicherweise nicht über Zugriff auf einige Parameter, falls diese nicht in den Ihnen zugewiesenen 
+    Berechtigungen enthalten sind. Informationen zu den von Ihnen benötigten 
     Berechtigungen finden Sie unter "Nachrichtenverfolgung" im Thema Nachrichtenflussberechtigungen.
     
 
