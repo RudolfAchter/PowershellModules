@@ -87,7 +87,7 @@ $global:vim_ad_domain="yourdomain.local"
 <#
     $global:vim_ad_groups
     Die User in dieser Gruppe
-        * Werden als Ansprechpartner und Creator Sychronisiert (VIM-Sync-Contacts)
+        * Werden als Responsible und Creator Sychronisiert (VIM-Sync-Contacts)
         * Email-Addressen der AD-User werden als Kontaktaddressen verwendet
 #>
 $global:vim_ad_groups=@("VMWare-MainUsers","VMWare-Administrators", "VMware-VmrcUsers.GG")
@@ -97,8 +97,8 @@ $global:vim_ad_groups=@("VMWare-MainUsers","VMWare-Administrators", "VMware-Vmrc
     $global:vim_ad_admingroup
     User dieser AD-Gruppe sind Admnistratoren der vCenter Umgebung
     Diese werden:
-        * Benachrichtigt wenn sonst kein Ansprechpartner für einen Task verfügbar ist
-        * Als Standard Ansprechpartner für das vCenter Backup eingetragen
+        * Benachrichtigt wenn sonst kein Responsible für einen Task verfügbar ist
+        * Als Standard Responsible für das vCenter Backup eingetragen
 #>
 $global:vim_ad_admingroup="VMWare-Administrators"
 $global:vim_ad_usergroup="VMWare-MainUsers"
@@ -130,7 +130,7 @@ else{
 #Das Bleibt gleich
 
 $global:vim_custom_attributes =     @(
-                                   #@{  "Name" = "Ansprechpartner";       "TargetType" = @("VMHost", "VirtualMachine")}
+                                   #@{  "Name" = "Responsible";       "TargetType" = @("VMHost", "VirtualMachine")}
                                     @{  "Name" = "VIM.DateCreated";                "TargetType" = @("VMHost", "VirtualMachine")}
                                     @{  "Name" = "VIM.DateUsedUntil";              "TargetType" = @("VMHost", "VirtualMachine")}
                                     @{  "Name" = "VIM.CreationMethod";             "TargetType" = @("VMHost", "VirtualMachine")}
@@ -145,11 +145,11 @@ Tag Kategorien die für alle VMs benötigt werden
 ACHTUNG nur für die virtuellen Maschinen selbst
 #>
 $global:vim_tags = @(
-                        "Ansprechpartner"
+                        "Responsible"
                         "Creator"
-                        "Applikation"
+                        "Application"
                         "Stage"
-                        "Kunde"
+                        "Customer"
                         "Backup Plan"
                     )
 
@@ -417,11 +417,11 @@ Function VIM-Get-VM-without-Contact {
 <#
 .SYNOPSIS
 
-	Sucht virtuelle Maschinen bei denen kein Ansprechpartner Tag gesetzt ist und gibt diese zurück
+	Sucht virtuelle Maschinen bei denen kein Responsible Tag gesetzt ist und gibt diese zurück
 .DESCRIPTION
 
 	Das Script ruft mit Get-VM alle virtuelle Maschinen im verbunden vCenter ab. Bei den virtuellen Maschinen
-	werden die TagAssignments der Kategorie "Ansprechpartner" abgerufen. Wenn weniger als ein Ansprechpartner
+	werden die TagAssignments der Kategorie "Responsible" abgerufen. Wenn weniger als ein Responsible
 	gesetzt ist, so wird die virtuelle Maschinen ausgegeben
 .PARAMETER none
 
@@ -445,9 +445,9 @@ Example Example
 
 
     Get-VM | ForEach-Object {
-        $tagass=$_ | Get-TagAssignment -Category "Ansprechpartner"
+        $tagass=$_ | Get-TagAssignment -Category "Responsible"
         if($tagass.Count -lt 1){
-            #Das hier ist eine VM ohne Ansprechpartner
+            #Das hier ist eine VM ohne Responsible
             $_
         }
     }
@@ -457,8 +457,8 @@ Function VIM-Show-VM-without-Contact {
     VIM-Get-VM-without-Contact | VIM-Check-Tags |
         Format-Table @{Expression={$_.Name};Label="Name";Width=30},
             @{Expression={$_.Stage};Label="Stage";Width=15},
-            @{Expression={$_.Applikation};Label="Applikation";Width=30},
-            @{Expression={$_.Ansprechpartner};Label="Ansprechpartner";Width=40},
+            @{Expression={$_.Application};Label="Application";Width=30},
+            @{Expression={$_.Responsible};Label="Responsible";Width=40},
             @{Expression={$_.MissingTags};Label="MissingTags";Width=80}
 }
 
@@ -466,17 +466,17 @@ Function VIM-Get-ContactAssignment {
 <#
 .SYNOPSIS
 
-    Zeigt Ansprechpartner einer VM an
+    Zeigt Responsible einer VM an
 .DESCRIPTION
 
-    Zeigt Ansprechpartner einer VM an
+    Zeigt Responsible einer VM an
 
     geplante Kategorien:
 
     Wichtige Tags:
         Tags werden auf ESX-HOST Objekte zugewiesen
-        Category: Ansprechpartner         Tag:*                       Ansprechpartner. Beschreibung des Ansprechpartners ist die E-Mail-Addresse
-        Category: Creator                 Tag:*                       Ersteller der VM. Beschreibung des Ansprechpartners ist die E-Mail-Addresse
+        Category: Responsible         Tag:*                       Responsible. Beschreibung des Responsibles ist die E-Mail-Addresse
+        Category: Creator                 Tag:*                       Ersteller der VM. Beschreibung des Responsibles ist die E-Mail-Addresse
 
 .PARAMETER VM
     Virtuelle Maschine als Objekt oder String
@@ -504,7 +504,7 @@ Function VIM-Get-ContactAssignment {
     [Alias('VirtualMachine')]
     $VM,
 
-    [ValidateSet("Ansprechpartner","Creator")] $Category="Ansprechpartner"
+    [ValidateSet("Responsible","Creator")] $Category="Responsible"
     )
     Begin {}
     
@@ -525,10 +525,10 @@ Function VIM-Get-ContactTag {
 <#
 .SYNOPSIS
 
-    Liefert den Tag eines Ansprechpartners
+    Liefert den Tag eines Responsibles
 .DESCRIPTION
 
-    Liefert den Tag eines Ansprechpartners
+    Liefert den Tag eines Responsibles
     Hauptsächlich zur internen Verwendung im Virtual-Infrastructure-Management Modul
     Vielleicht aber auch als Standalone Cmdlet nützlich
 
@@ -537,7 +537,7 @@ Function VIM-Get-ContactTag {
 
     Die Tags in vCenter heissen z.B. so
 
-    Achter, Rudolf; Ansprechpartner
+    Achter, Rudolf; Responsible
     Achter, Rudolf; Creator
 
     Dieses Cmdlet vereinfacht hierzu einfach die Handhabung
@@ -545,7 +545,7 @@ Function VIM-Get-ContactTag {
     param(
         $Name,
 
-        [ValidateSet("Ansprechpartner","Creator","All")] $Category="Ansprechpartner"
+        [ValidateSet("Responsible","Creator","All")] $Category="Responsible"
     )
 
     Begin {}
@@ -554,7 +554,7 @@ Function VIM-Get-ContactTag {
 
     End {
         if($Category="All"){
-            ForEach($Category in @("Ansprechpartner","Creator")){
+            ForEach($Category in @("Responsible","Creator")){
                 Get-Tag -Name $($Name + "; " + $Category) -Category $Category
             }
         }
@@ -694,15 +694,15 @@ Function VIM-Get-VMValue {
                          Name                   Typ
                          ------------           -----------
                          missingTags            Array
-                         Ansprechpartner        String
-                         Applikation            String
+                         Responsible        String
+                         Application            String
                          Stage                  String
                          VIM.DateCreated        String
                          VIM.DateUsedUntil      String
                          VIM.CreationMethod     String
 
 .EXAMPLE
-    Get-VM | VIM-Get-VMValue | Select Name,Ansprechpartner,Applikation,Stage,VIM.DateCreated,VIM.DateUsedUntil | Out-GridView
+    Get-VM | VIM-Get-VMValue | Select Name,Responsible,Application,Stage,VIM.DateCreated,VIM.DateUsedUntil | Out-GridView
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/VIM-Get-VMValue
 
@@ -1231,8 +1231,8 @@ Function VIM-Check-Tags {
                          Name              Typ
                          ------------      -----------
     Added-Property:      missingTags       Array
-    Added-Property:      Ansprechpartner   String
-    Added-Property:      Applikation       String
+    Added-Property:      Responsible   String
+    Added-Property:      Application       String
     Added-Property:      Stage             String
 .PARAMETER VM
     Virtuelle Maschine
@@ -1333,10 +1333,10 @@ Function VIM-Get-VM-MissingTags {
 .DESCRIPTION
     Ruft VIM-Check-Tags für alle VMs und gibt die VMs zurück bei denen Tags fehlen
 .PARAMETER Contact
-    String oder Tag: Ansprechpartner für den VMs mit "MissingTags" gesucht werden. Wird ein Tag übergeben kann nach "Creator" oder "Ansprechpartner" unterschieden werden
+    String oder Tag: Responsible für den VMs mit "MissingTags" gesucht werden. Wird ein Tag übergeben kann nach "Creator" oder "Responsible" unterschieden werden
 .EXAMPLE
     VIM-Get-VM-MissingTags -Contact "Schneider*"
-    #Zeigt VMs mit Schneider, Jens (oder alle die mit Schneider beginnen) als Ansprechpartner
+    #Zeigt VMs mit Schneider, Jens (oder alle die mit Schneider beginnen) als Responsible
 .EXAMPLE
     VIM-Get-VM-MissingTags
 .EXAMPLE
@@ -1363,7 +1363,7 @@ Function VIM-Get-VM-MissingTags {
             }
             else
             {
-                $tag = Get-Tag -Category "Ansprechpartner" -Name $Contact
+                $tag = Get-Tag -Category "Responsible" -Name $Contact
                 $vm = Get-VM -Tag $tag
             }
         }
@@ -1394,9 +1394,9 @@ Function VIM-Show-VM-MissingTags {
     VIM-Get-VM-MissingTags -Contact $Contact |
         Format-Table @{Expression={$_.Name};Label="Name";Width=30},
             @{Expression={$_.Stage};Label="Stage";Width=15},
-            @{Expression={$_.Applikation};Label="Applikation";Width=30},
+            @{Expression={$_.Application};Label="Application";Width=30},
             @{Expression={$_.Creator};Label="Creator";Width=40},
-            @{Expression={$_.Ansprechpartner};Label="Ansprechpartner";Width=40},
+            @{Expression={$_.Responsible};Label="Responsible";Width=40},
             @{Expression={$_.MissingTags};Label="MissingTags";Width=80}
 
 
@@ -1413,8 +1413,8 @@ Function VIM-Get-ContactsHash {
     Die Hashtable ist wie folgt Aufgebaut
 
     contact1@megatech-communication.de
-        Name = Name                  "Name" des Ansprechpartner Tag
-        Address = E-mail-Addresse    "Description" Email-Addresse des Ansprechpartner Tags
+        Name = Name                  "Name" des Responsible Tag
+        Address = E-mail-Addresse    "Description" Email-Addresse des Responsible Tags
         Data = @{}                   Eine Lere Hashtable zum Speichern von Ergebnissen für den Contact
 .EXAMPLE
     $h_contacts=VIM-Get-ContactsHash
@@ -1433,7 +1433,7 @@ Function VIM-Get-ContactsHash {
 
 #>
     $h_contacts=@{}
-    ForEach ($t in Get-Tag -Category "Ansprechpartner"){
+    ForEach ($t in Get-Tag -Category "Responsible"){
             
         if($t.Description -eq ""){
             Write-Host $("Bei " + $t.Name + " ist in der Description keine E-Mail-Addresse hinterlegt")
@@ -1470,8 +1470,8 @@ Function VIM-Get-Contacts {
 .DESCRIPTION
     Erwartet als Parameter eine virtuelle Maschine. Es werden die relevanten Ansprechparnter
     für die virtuelle Maschine zurückgegeben (ARRAY). Und das in folgender Reihenfolge:
-        1. Ansprechpartner im Ansprechpartner Tag
-        2. Creator wenn kein Ansprechpartner vorhanden
+        1. Responsible im Responsible Tag
+        2. Creator wenn kein Responsible vorhanden
         3. Admins wenn kein Creator vorhanden
 
 #>
@@ -1495,8 +1495,8 @@ Function VIM-Get-Contacts {
 
             $a_contacts=@()
 
-            #Ansprechpartner Informieren
-            if($tagass=$o_vm | Get-TagAssignment -Category "Ansprechpartner"){
+            #Responsible Informieren
+            if($tagass=$o_vm | Get-TagAssignment -Category "Responsible"){
                 #$a_contact_email=$tagass.Tag.Description
                 
                 ForEach($ass in $tagass){
@@ -1507,7 +1507,7 @@ Function VIM-Get-Contacts {
                     $a_contacts+=$contact
                 }
             }
-            #Wenn kein Ansprechpartner vorhanden dann Creator
+            #Wenn kein Responsible vorhanden dann Creator
             elseif($tagass=$o_vm | Get-TagAssignment -Category "Creator"){
                 #$a_contact_email=$tagass.Tag.Description
                 ForEach($ass in $tagass){
@@ -1548,13 +1548,13 @@ Function VIM-Mail-VM-MissingTags
 <#
 .SYNOPSIS 
     Verschickt Mails für VMs bei denen Tags fehlen
-    Primär werden die Ansprechpartner angeschrieben
-    Sollte ein Ansprechpartner fehlen, wird die Mail an den Creator geschickt
+    Primär werden die Responsible angeschrieben
+    Sollte ein Responsible fehlen, wird die Mail an den Creator geschickt
 .DESCRIPTION
     Die Funktion marschiert durch VIM-Get-VM-MissingTags
     Inhalte der zu versendenden Mails werden in HashTables für die Empfänger summiert
     Die Empfänger werden in dieser Reihenfolge ermittelt:
-        1. Ansprechpartner
+        1. Responsible
         2. Creator
         3. $global:vim_ad_groups
 
@@ -1567,7 +1567,7 @@ Function VIM-Mail-VM-MissingTags
     param(
         <#
             Ein Empfänger als String oder mehrere Empfänger als String Array.
-            Standardmäßig wird diese Mail an die Ansprechpartner gesendet.
+            Standardmäßig wird diese Mail an die Responsible gesendet.
             Dieser Parameter dient als Umleitung (für Tests)
         #>
         $MailTo=""
@@ -1583,7 +1583,7 @@ Function VIM-Mail-VM-MissingTags
 
         $h_contacts = @{}
 
-        ForEach ($t in Get-Tag -Category "Ansprechpartner"){
+        ForEach ($t in Get-Tag -Category "Responsible"){
             
             if($t.Description -eq ""){
                 Write-Host $("Bei " + $t.Name + " ist in der Description keine E-Mail-Addresse hinterlegt")
@@ -1601,11 +1601,11 @@ Function VIM-Mail-VM-MissingTags
 
         ForEach($o_vm in VIM-Get-VM-MissingTags) {
         #ForEach($o_vm in $vms) {
-            #Ansprechpartner Informieren
-            if($tagass=$o_vm | Get-TagAssignment -Category "Ansprechpartner"){
+            #Responsible Informieren
+            if($tagass=$o_vm | Get-TagAssignment -Category "Responsible"){
                 $a_contact_email=$tagass.Tag.Description
             }
-            #Wenn kein Ansprechpartner vorhanden dann Creator
+            #Wenn kein Responsible vorhanden dann Creator
             elseif($tagass=$o_vm | Get-TagAssignment -Category "Creator"){
                 $a_contact_email=$tagass.Tag.Description
             }
@@ -1780,7 +1780,7 @@ Function VIM-Check-EndOfLife {
 .EXAMPLE
     Get-VM -Tag "Ring*" | VIM-Check-EndOfLife
 .EXAMPLE
-    $tag=Get-Tag -Category Ansprechpartner -Name "Achter*"
+    $tag=Get-Tag -Category Responsible -Name "Achter*"
     Get-VM -Tag $tag | VIM-Check-EndOfLife
 .EXAMPLE
     Get-VM "deslnclivisio2k16" | VIM-Check-EndOfLife
@@ -1823,11 +1823,11 @@ Function VIM-Check-EndOfLife {
                 {
                     #Write-Host "Abgelaufene VM: " $o_vm.Name
                     $s_Stage=(Get-TagAssignment -Entity $o_vm -Category "Stage").Tag.Name -join "; "
-                    $s_Application=(Get-TagAssignment -Entity $_ -Category "Applikation").Tag.Name -join "; "
-                    $s_Ansprechpartner=(Get-TagAssignment -Entity $_ -Category "Ansprechpartner").Tag.Name -join "; "
+                    $s_Application=(Get-TagAssignment -Entity $_ -Category "Application").Tag.Name -join "; "
+                    $s_Responsible=(Get-TagAssignment -Entity $_ -Category "Responsible").Tag.Name -join "; "
                     Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "Stage"             -Value $s_Stage
-                    Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "Ansprechpartner"   -Value $s_Ansprechpartner
-                    Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "Applikation"       -Value $s_Application
+                    Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "Responsible"   -Value $s_Responsible
+                    Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "Application"       -Value $s_Application
                     Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "VIM.DateCreated"   -Value $s_Created
                     Add-Member -InputObject $o_vm -MemberType NoteProperty -Name "VIM.DateUsedUntil" -Value $s_UsedUntil
 
@@ -1853,7 +1853,7 @@ Function VIM-Get-VMEndOfLife {
 .PARAMETER DaysToUsedUntil
     So viele Tage vor "UsedUntil" wird die Maschine gemeldet
 .PARAMETER Contact
-    VMs von einem bestimmten Ansprechpartner anzeigen
+    VMs von einem bestimmten Responsible anzeigen
 .PARAMETER ShowArchived
     Standardmäßig werden keine archivierten VMs mehr angezeigt
     mit -ShowArchived:$true kannst du dir diese VMs wieder anzeigen lassen
@@ -1881,12 +1881,12 @@ Function VIM-Get-VMEndOfLife {
     #$a_oldvms=Get-VM | VIM-Check-EndOfLife -DaysToUsedUntil $DaysToUsedUntil
 
     if($Contact -ne ""){
-        $tag=Get-Tag -Category "Ansprechpartner" -Name $Contact
+        $tag=Get-Tag -Category "Responsible" -Name $Contact
         $vms_to_return=Get-VM -Tag $tag | VIM-Check-EndOfLife -DaysToUsedUntil $DaysToUsedUntil
         
     }
     else {
-        $tags=Get-Tag -Category "Ansprechpartner" 
+        $tags=Get-Tag -Category "Responsible" 
         $vms_to_return=Get-VM | VIM-Check-EndOfLife -DaysToUsedUntil $DaysToUsedUntil
     }
 
@@ -1907,7 +1907,7 @@ Function VIM-Show-VMEndOfLife {
 .PARAMETER DaysToUsedUntil
     So viele Tage vor "UsedUntil" wird die Maschine gemeldet
 .PARAMETER Contact
-    VMs von einem bestimmten Ansprechpartner anzeigen
+    VMs von einem bestimmten Responsible anzeigen
 .PARAMETER ShowArchived
     Standardmäßig werden keine archivierten VMs mehr angezeigt
     mit -ShowArchived:$true kannst du dir diese VMs wieder anzeigen lassen
@@ -1939,10 +1939,10 @@ Function VIM-Mail-VMEndOfLife {
 .SYNOPSIS 
     Benachrichtigt über ablaufende VMs
 .DESCRIPTION
-    Durchsucht alle Ansprechpartner und benachrichtigt alle über ablaufende VMs.
+    Durchsucht alle Responsible und benachrichtigt alle über ablaufende VMs.
     Über VMs die bereits archiviert wurden, wird nicht mehr benachrichtigt.
 .PARAMETER Contact
-    Ansprechpartner Tag oder Ansprechpartner als String.
+    Responsible Tag oder Responsible als String.
 
     Es können auch Wildcards verwendet werden. z.B.:
     VIM-Mail-VMEndOfLife -Contact "Achter*"
@@ -1955,11 +1955,11 @@ Function VIM-Mail-VMEndOfLife {
 
     param (
     
-    [Parameter(Position=0)][Alias('Ansprechpartner')][string] $Contact="",
+    [Parameter(Position=0)][Alias('Responsible')][string] $Contact="",
     [Parameter(Position=1)] [int]$DaysToUsedUntil=$global:vim_VM_DaysToUsedUntil,
     <#
         Ein Empfänger als String oder mehrere Empfänger als String Array.
-        Standardmäßig wird diese Mail an die Ansprechpartner gesendet.
+        Standardmäßig wird diese Mail an die Responsible gesendet.
         Dieser Parameter dient als Umleitung (für Tests)
     #>
     $MailTo=""
@@ -1970,10 +1970,10 @@ Function VIM-Mail-VMEndOfLife {
     $a_oldvms=Get-VM | VIM-Check-EndOfLife -DaysToUsedUntil $DaysToUsedUntil | VIM-Get-VMValue | ? Stage -ne "Archiv Stage"
 
     if($Contact -ne ""){
-        $tags=Get-Tag -Category "Ansprechpartner" -Name $Contact
+        $tags=Get-Tag -Category "Responsible" -Name $Contact
     }
     else {
-        $tags=Get-Tag -Category "Ansprechpartner" 
+        $tags=Get-Tag -Category "Responsible" 
     }
 
 
@@ -1984,7 +1984,7 @@ Function VIM-Mail-VMEndOfLife {
         
         Write-Host "OldVMs für: " $tag.Description
         
-        Get-TagAssignment -Category "Ansprechpartner"| ?{($_.Tag.Name -eq $tag.Name)} | ForEach-Object {
+        Get-TagAssignment -Category "Responsible"| ?{($_.Tag.Name -eq $tag.Name)} | ForEach-Object {
             $tagass = $_
             
             Try {
@@ -2025,14 +2025,14 @@ Function VIM-Mail-VMEndOfLife {
             '
             #>
 
-            $out= "Virtuelle Maschinen End Of Life mit Ansprechpartner: " + $tag.Name +"<hr/>"
+            $out= "Virtuelle Maschinen End Of Life mit Responsible: " + $tag.Name +"<hr/>"
             $out+= "Der Nutzungszeitraum dieser virtueller Maschinen läuft ab (siehe DateUsedUntil). Melde dich bei deinem VMWare-Administrator
                     um den Nutzungszeitraum zu verlängern, oder die virtuellen Maschinen löschen zu lassen. Wenn der Nutzungszeitraum abgelaufen ist, werden diese VMs heruntergefahren und archiviert. Ein VMWare-Administrator kann die archivierten VMs dann wiederherstellen"
                
 
-            $details = [string]($a_useroldvms | Select Name,Stage,"VIM.DateCreated","VIM.DateUsedUntil",Applikation,Notes | ConvertTo-Html -As List -Fragment)
+            $details = [string]($a_useroldvms | Select Name,Stage,"VIM.DateCreated","VIM.DateUsedUntil",Application,Notes | ConvertTo-Html -As List -Fragment)
 
-            $html = [string]($a_useroldvms | Select Name,Stage,"VIM.DateCreated","VIM.DateUsedUntil",Applikation | 
+            $html = [string]($a_useroldvms | Select Name,Stage,"VIM.DateCreated","VIM.DateUsedUntil",Application | 
                 ConvertTo-Html -PreContent $out -PostContent ("<h1>Details:</h1><hr/>" + $details))
 
             
@@ -2167,7 +2167,7 @@ Function VIM-Mail-VM-without-Contact {
 <#
 .SYNOPSIS
 
-	Sendet eine E-Mail mit einer Auflistung der VMs bei denen kein Ansprechpartner gelistet ist
+	Sendet eine E-Mail mit einer Auflistung der VMs bei denen kein Responsible gelistet ist
 .DESCRIPTION
 
 	Das Script holt sich die VMs von der Funktion "VIM-Get-VM-withoud-Contact" und formuliert eine
@@ -2213,7 +2213,7 @@ Function VIM-Mail-VM-without-Contact {
         #Name, Beschreibung
         $out+= "<strong>Beschreibung:</strong> <br/>`n<pre>" + $_.Notes + "</pre><br/>`n"
         
-        #Tags (Applikationen und dergleichen)
+        #Tags (Applicationen und dergleichen)
         $tags_str = $_ | Get-TagAssignment | Select "Tag" | ConvertTo-Html -Fragment
         $out+= "<strong>Tags:</strong>" + $tags_str  +"<br/>`n" 
 
@@ -2232,7 +2232,7 @@ Function VIM-Mail-VM-without-Contact {
     Send-MailMessage -SmtpServer $mail_smtp_server `
                      -From $mail_sender `
                      -To $mail_default_recipient `
-                     -Subject "VMWare Infrastructure Management: Virtuelle Maschinen ohne Ansprechpartner" `
+                     -Subject "VMWare Infrastructure Management: Virtuelle Maschinen ohne Responsible" `
                      -BodyAsHtml $out `
                      -Encoding UTF8
      #>
@@ -2245,13 +2245,13 @@ Function VIM-Mail-VM-without-Contact {
     }
 <#
      VIM-Mail -To $SendMailTo `
-              -Subject "VMWare Infrastructure Management: Virtuelle Maschinen ohne Ansprechpartner" `
+              -Subject "VMWare Infrastructure Management: Virtuelle Maschinen ohne Responsible" `
               -Html $out
 #>
     VIM-Mail -To $SendMailTo `
-        -Subject "VMWare Infrastructure Management: Virtuelle Maschinen ohne Ansprechpartner" `
-        -Objects ($vm_wo_contact | Select Name,VIM.DateCreated,Ansprechpartner,Creator,Applikation,Stage,missingTags) `
-        -Description 'VMWare Infrastructure Management: Virtuelle Maschinen ohne Ansprechpartner. Hier m&uuml;ssen noch Ansprechpartner laut VMWare Infrastructure Management gesetzt werden: <br/><a href="http://wiki.megatech.local/mediawiki/index.php/Virtual_Infrastructure_Management#Daten_in_vCenter">Wiki: Virtual Infrastructure Management</a>'
+        -Subject "VMWare Infrastructure Management: Virtuelle Maschinen ohne Responsible" `
+        -Objects ($vm_wo_contact | Select Name,VIM.DateCreated,Responsible,Creator,Application,Stage,missingTags) `
+        -Description 'VMWare Infrastructure Management: Virtuelle Maschinen ohne Responsible. Hier m&uuml;ssen noch Responsible laut VMWare Infrastructure Management gesetzt werden: <br/><a href="http://wiki.megatech.local/mediawiki/index.php/Virtual_Infrastructure_Management#Daten_in_vCenter">Wiki: Virtual Infrastructure Management</a>'
         
 
 
@@ -2486,7 +2486,7 @@ Function VIM-Get-vCenter {
     Holt sich das aktuelle primäre vCenter
 
     Wichtige Tags:
-        Category: Applikation          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird gesichert
+        Category: Application          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird gesichert
 
 .EXAMPLE
     $vcenter=VIM-Get-vCenter
@@ -2494,7 +2494,7 @@ Function VIM-Get-vCenter {
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Virtual-Infrastructure-Management.psm1/VIM-Get-vCenter
 #>
 
-    $tagass=Get-TagAssignment -Category "Applikation" | Where-Object {$_.Tag.Name -eq "vCenterPrimary"}
+    $tagass=Get-TagAssignment -Category "Application" | Where-Object {$_.Tag.Name -eq "vCenterPrimary"}
     Get-VM $tagass.Entity
 }
 
@@ -2507,8 +2507,8 @@ Function VIM-Clone-vCenter {
     Es müssen vorher Tags auf Objekte festgelegt worden sein damit das Backup funktioniert
 
     Wichtige Tags:
-        Category: Applikation          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird gesichert
-        Category: Applikation          Tag:vCenterBackup     Markierung für den vCenter Klon. Wenn das primäre vCenter ausgefallen ist
+        Category: Application          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird gesichert
+        Category: Application          Tag:vCenterBackup     Markierung für den vCenter Klon. Wenn das primäre vCenter ausgefallen ist
                                                              muss der vCenter Klon als "vCenterPrimary" markiert werden
         Category: DatastoreUsage       Tag:Backup            Auf diesen Datastore wird vCenter geklont
         Category: HostUsage            Tag:Backup            Auf diesen Host wird vCenter geklont
@@ -2524,7 +2524,7 @@ Function VIM-Clone-vCenter {
     $vcenter=VIM-Get-vCenter
 
     if($vcenter.Count -gt 1){
-        Write-Error "Es darf nur ein vCenterPrimary vorhanden sein. Bitte Tags Category: Applikation Tag:vCenterPrimary prüfen"
+        Write-Error "Es darf nur ein vCenterPrimary vorhanden sein. Bitte Tags Category: Application Tag:vCenterPrimary prüfen"
         return $false
     }
 
@@ -2564,14 +2564,14 @@ Function VIM-Clone-vCenter {
     $vcenter_clone | VIM-Set-CreationByEvent
 
     #Standardmäßig darf der vCenter Clone nicht Asynchron laufen, damit ich Sofort die richtigen Tags setzen kann
-    Get-ADGroupMember $global:vim_ad_admingroup | %{VIM-Get-ContactTag -Name $_.Name -Category Ansprechpartner} | ForEach-Object {
+    Get-ADGroupMember $global:vim_ad_admingroup | %{VIM-Get-ContactTag -Name $_.Name -Category Responsible} | ForEach-Object {
         $tag=$_
         $dummy=New-TagAssignment -Entity $vcenter_clone -Tag $tag
     }
 
     $dummy=New-TagAssignment -Entity $vcenter_clone -Tag $(Get-Tag -Category "Creator" -Name "vmwarevdp; Creator")
     $dummy=New-TagAssignment -Entity $vcenter_clone -Tag $(Get-Tag -Category "Stage" -Name "Live")
-    $dummy=New-TagAssignment -Entity $vcenter_clone -Tag $(Get-Tag -Category "Applikation" -Name "vCenterBackup")
+    $dummy=New-TagAssignment -Entity $vcenter_clone -Tag $(Get-Tag -Category "Application" -Name "vCenterBackup")
 
     #Rückgabe des geklonten vCenter
     Get-VM $vcenter_clone
@@ -2690,7 +2690,7 @@ Function VIM-Sync-Contacts {
 .PARAMETER TagCategories
     Tag Kategorien mit denen diese User Synchronisiert werden 
     Es können also mehrere Tag-Kategorien diese Kontakte enthalten
-    Standard: @("Ansprechpartner","Creator")
+    Standard: @("Responsible","Creator")
 .LINK
     http://wiki.megatech.local/mediawiki/index.php/Scripts/Powershell/Virtual-Infrastructure-Management.psm1/VIM-Sync-Contacts
 #>
@@ -2698,7 +2698,7 @@ Function VIM-Sync-Contacts {
     [CmdletBinding()]
     param(
     $ADGroups=$global:vim_ad_groups,
-    $TagCategories=@("Ansprechpartner","Creator")
+    $TagCategories=@("Responsible","Creator")
     )
 
     $aduser=@()
@@ -3383,7 +3383,7 @@ Function VIM-Mail-Snapshot {
         $Unit="Month",
         <#
             Ein Empfänger als String oder mehrere Empfänger als String Array.
-            Standardmäßig wird diese Mail an die Ansprechpartner gesendet.
+            Standardmäßig wird diese Mail an die Responsible gesendet.
             Dieser Parameter dient als Umleitung (für Tests)
         #>
         $MailTo=""
@@ -3667,11 +3667,11 @@ Function VIM-Copy-TagStructure {
         #Exportieren der Tags vom ALTEN vCenter
         $tag_category=Get-TagCategory
         
-        $tags= Get-Tag -Category "Ansprechpartner"
+        $tags= Get-Tag -Category "Responsible"
         $tags+=Get-Tag -Category "Creator"
-        $tags+=Get-Tag -Category "Applikation"
+        $tags+=Get-Tag -Category "Application"
         $tags+=Get-Tag -Category "Storage Stage"
-        $tags+=Get-Tag -Category "Kunde"
+        $tags+=Get-Tag -Category "Customer"
         $tags+=Get-Tag -Category "Backup Plan"
         $tags+=Get-Tag -Category "DatastoreUsage"
         $tags+=Get-Tag -Category "HostUsage"
@@ -3701,8 +3701,8 @@ Function VIM-Export-TagStructure{
     Exportiert die Virtual Infrastructure Management Tag Struktur in ein XML File (CliXML)
     Dieses File kann in ein anderes vCenter wieder importiert werden
 .DESCRIPTION
-    Das exportierte File kannst du dann zum Beispiel zum Kunden kopieren und dort importieren.
-    Beim Management System des Kunden muss entsprechend das Virtual-Infrastructure-Management Modul installiert sein
+    Das exportierte File kannst du dann zum Beispiel zum Customern kopieren und dort importieren.
+    Beim Management System des Customern muss entsprechend das Virtual-Infrastructure-Management Modul installiert sein
 .EXAMPLE
     VIM-Export-TagStructure -File C:Temp\TagStructure.cli.xml
 #>
@@ -3719,11 +3719,11 @@ Function VIM-Export-TagStructure{
         #Exportieren der Tags vom ALTEN vCenter
         $tag_category=Get-TagCategory
         
-        $tags= Get-Tag -Category "Ansprechpartner"
+        $tags= Get-Tag -Category "Responsible"
         $tags+=Get-Tag -Category "Creator"
-        $tags+=Get-Tag -Category "Applikation"
+        $tags+=Get-Tag -Category "Application"
         $tags+=Get-Tag -Category "Storage Stage"
-        $tags+=Get-Tag -Category "Kunde"
+        $tags+=Get-Tag -Category "Customer"
         $tags+=Get-Tag -Category "Backup Plan"
         $tags+=Get-Tag -Category "DatastoreUsage"
         $tags+=Get-Tag -Category "HostUsage"
@@ -3941,7 +3941,7 @@ Function VIM-Mail-AffectedVMs (
     }
 
     End{
-        $a_hosts | Get-VM | ? PowerState -eq PoweredOn | VIM-Get-VMValue | Select VMHost,Name,Ansprechpartner,Applikation,Stage | 
+        $a_hosts | Get-VM | ? PowerState -eq PoweredOn | VIM-Get-VMValue | Select VMHost,Name,Responsible,Application,Stage | 
             VIM-Mail -To $To -Subject "Von Wartung betroffene VMs" -Description "Betroffene VMs" 
     }
 }
@@ -4313,7 +4313,7 @@ Function VIM-Mail-VM-AffectedToContacts{
 
         $Description="Test",
 
-        $Columns=@("Name", "VIM.DateCreated", "VIM.DateUsedUntil", "Stage", "Applikation", "Notes"),
+        $Columns=@("Name", "VIM.DateCreated", "VIM.DateUsedUntil", "Stage", "Application", "Notes"),
 
         $MailTo="",
 
@@ -5112,9 +5112,9 @@ Function VIM-Show-ResourceReservation {
 
                 $columns = @(
                     "Stage",
-                    "Ansprechpartner",
+                    "Responsible",
                     "Creator",
-                    "Applikation",
+                    "Application",
                     "VIM.DateUsedUntil"
                 )
 
@@ -6687,7 +6687,7 @@ Report-VM -EventMessage "vSphere HA restarted virtual machine*" -Start ((Get-Dat
         $report_objects=Get-VM | Where-Object{$_ | Get-VIEvent -Start $Start -Finish $End | 
             Where-Object{$_.FullFormattedMessage -match $EventMessage}} | VIM-Get-VMValue
         
-         $report_objects | Select-Object Name,Ansprechpartner,Applikation,Stage | ConvertTo-StyledHTML | New-OutlookMail
+         $report_objects | Select-Object Name,Responsible,Application,Stage | ConvertTo-StyledHTML | New-OutlookMail
     }
 
 }
@@ -6952,11 +6952,11 @@ Function Set-VMDocumentation {
 
             $out+='{{Template:VirtualMachine|'
             $out+='Name=' + $o_vm.Name + '|'
-            $out+='Kunde=' + ($o_vm.Kunde -join ", ") + '|'
+            $out+='Customer=' + ($o_vm.Customer -join ", ") + '|'
             $out+='BusinessService=' + (($a_tags.Tag | Where-Object {$_.Category -like "Business Service*"}).Name) + '|'
-            $out+='Applikation=' + ($o_vm.Applikation -join ", ") + '|'
+            $out+='Application=' + ($o_vm.Application -join ", ") + '|'
             $out+='Creator=' + ($o_vm.Creator -join ", ") + '|'
-            $out+='Ansprechpartner=' + ($o_vm.Ansprechpartner -join ", ") + '|'
+            $out+='Responsible=' + ($o_vm.Responsible -join ", ") + '|'
             $out+='Erstellt=' + ($o_vm."VIM.DateCreated") + '|'
             $out+='VerwendetBis=' + ($o_vm."VIM.DateUsedUntil") + '|'
             $out+='Beschreibung=' + ($o_vm."Notes") + '|'
@@ -7003,7 +7003,7 @@ Function Get-VMHardDiskLUNReport {
 
 }
 
-Function Get-VMDocAnsprechpartnerStrings {
+Function Get-VMDocResponsibleStrings {
     param(
         [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
         $VMDocumentation
@@ -7015,7 +7015,7 @@ Function Get-VMDocAnsprechpartnerStrings {
 
         $VMDocumentation | ForEach-Object {
             $o_vmdoc=$_
-            $a_strings=$o_vmdoc.Ansprechpartner -split "; Ansprechpartner,{0,1} {0,1}"
+            $a_strings=$o_vmdoc.Responsible -split "; Responsible,{0,1} {0,1}"
 
             $a_strings | ForEach-Object {
                 $str=$_
@@ -7047,12 +7047,12 @@ Function Recover-VMDocumentationFromWiki {
 
             $o_vmdoc=$o_vm | Get-VMDocumentation
 
-            #Kunden Tags holen
-            $a_kunden=$o_vmdoc.Kunde -split ", "
-            $o_kunden_tags=Get-Tag -Category "Kunde" -Name $a_kunden
+            #Customern Tags holen
+            $a_Customern=$o_vmdoc.Customer -split ", "
+            $o_Customern_tags=Get-Tag -Category "Customer" -Name $a_Customern
 
-            #Kunden Tags setzen
-            $o_kunden_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
+            #Customern Tags setzen
+            $o_Customern_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
 
             #Business Service Tags holen
             $a_val=$o_vmdoc.BusinessService -split ", "
@@ -7061,9 +7061,9 @@ Function Recover-VMDocumentationFromWiki {
             #Business Service Tags setzen
             $o_val_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
 
-            #Applikation Tags holen
-            $a_val=$o_vmdoc.Applikation -split ", "
-            $o_val_tags=Get-Tag -Category "Applikation" -Name $a_val
+            #Application Tags holen
+            $a_val=$o_vmdoc.Application -split ", "
+            $o_val_tags=Get-Tag -Category "Application" -Name $a_val
 
             #Business Service Tags setzen
             $o_val_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
@@ -7074,8 +7074,8 @@ Function Recover-VMDocumentationFromWiki {
             New-TagAssignment -Entity $o_vm -Tag $o_val_tag
 
             #Ansprechparnter setzen
-            Get-VMDocAnsprechpartnerStrings -VMDocumentation $o_vmdoc | ForEach-Object {
-                $o_val_tag = Get-Tag -Category Ansprechpartner -Name ($_+"; Ansprechpartner")
+            Get-VMDocResponsibleStrings -VMDocumentation $o_vmdoc | ForEach-Object {
+                $o_val_tag = Get-Tag -Category Responsible -Name ($_+"; Responsible")
                 New-TagAssignment -Entity $o_vm -Tag $o_val_tag
             }
 

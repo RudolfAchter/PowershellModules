@@ -12,7 +12,7 @@
 RootModule = 'Virtual-Infrastructure-Management.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '4.4'
+ModuleVersion = '4.5'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
