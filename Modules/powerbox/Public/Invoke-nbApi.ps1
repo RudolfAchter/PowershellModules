@@ -118,7 +118,7 @@ function Invoke-nbApi {
                 Uri         = $URI.Uri
                 Method      = $HttpVerb
                 UserAgent   = "NB-{0}-PowerShell" -f $ENV:USERNAME
-                ContentType = 'application/json'
+                ContentType = 'application/json; charset=utf-8'
                 Body        = $Body
                 ###TimeoutSec
                 ###MaximumRedirection
@@ -129,10 +129,16 @@ function Invoke-nbApi {
                 $unmanagedString = $marshal::SecureStringToGlobalAllocUnicode($Script:Token)
                 $Params['Headers'] = @{
                     Authorization = "token {0}" -f $marshal::PtrToStringUni($unmanagedString)
+                    ContentType = 'application/json; charset=utf-8'
                 }
             }
             #splat the paramaters into Invoke-Restmethod
-            $Response = Invoke-RestMethod @Params
+            #$Response = Invoke-RestMethod @Params
+
+            $web_response = Invoke-WebRequest @Params
+            $raw_response_utf8=[system.Text.Encoding]::UTF8.GetString($web_response.RawContentStream.ToArray())
+            $Response=$raw_response_utf8 | ConvertFrom-Json
+
             ###Write-Verbose "Status $($Response.status)"
             ###if ($Response.status -ne 200)
             ###{
