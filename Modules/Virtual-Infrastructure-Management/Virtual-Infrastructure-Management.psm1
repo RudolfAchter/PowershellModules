@@ -69,6 +69,10 @@ If(-not (Test-Path ($Global:PowershellConfigDir + "\" + $global:thisModuleName +
     Set-Content -Path ($Global:PowershellConfigDir + "\" + $global:thisModuleName + ".config.ps1") -Value (@'
 
 
+$Global:vimConfig=@{
+    defaultVcenter="localhost"
+}
+
 
 $global:mail_smtp_server="mail.yourdomain.local"
 $global:mail_sender="virtual-infrastructure-management@yourdomain.local"
@@ -149,10 +153,9 @@ $global:vim_tags = @(
                         "Creator"
                         "Application"
                         "Stage"
-                        "Customer"
+                        "Tenant"
                         "Backup Plan"
                     )
-
 <#
     $global:vim_focus
     Manchmal will ich immer mit einem bestimmten Host, Datastore, Netzwerk usw arbeiten
@@ -185,6 +188,50 @@ Add-Type -AssemblyName System.Web
 . ($ModuleHome + "\include\" + "02 Snapshot Information.ps1")
 . ($ModuleHome + "\include\" + "VMWare-vSphere-Replication.ps1")
 . ($ModuleHome + "\include\" + "VMWare_PowerCLI_Addons.ps1")
+
+
+#Funktionen um Virtual-Infrastructure-Management zu initialisieren
+
+
+Function VIM-Create-CustomAttributes {
+<#
+.SYNOPSIS
+    Erstellt die CustomAttributes die für Virtual-Infrastructure-Management benötigt werden.
+    Wenn Die CustomAttributes bereits vorhanden sind, werden sie kein zweites Mal angelegt
+.EXAMPLE
+    VIM-Create-CustomAttributes
+.EXAMPLE
+    VIM-Create-CustomAttributes
+    VIM-Copy-TagStructure -oldVCenter oldvcenter.domain.local -newVCenter newvcenter.domain.local
+#>
+        $a_catt = $global:vim_custom_attributes
+
+
+        ForEach ($att in $a_catt) {
+            if(-not (Get-CustomAttribute -Name $att.Name -ErrorAction SilentlyContinue)) {
+                New-CustomAttribute -Name $att.Name -TargetType $att.TargetType
+            }
+        }
+
+}
+
+
+Function VIM-Create-TagCategories {
+    New-TagCategory -Name "Responsible" -Description "Ein oder mehrere Verantwortliche Ansprechpartner" -Cardinality Multiple
+    New-TagCategory -Name "Creator" -Description "Ersteller der VM. Solange kein Responsible / Ansprechpartner hinterlegt ist, ist dieser Verantwortlicher über das Objekt" -Cardinality Single
+    New-TagCategory -Name "Application" -Description "Ein oder mehrere Applikationen die dieser virtuellen Maschine zugeordnet werden" -Cardinality Multiple -EntityType "VM"
+    New-TagCategory -Name "Stage" -Description "Definition ob es sich um ein Test oder Live System handelt" -Cardinality Single -EntityType "VM"
+    New-TagCategory -Name "Storage Stage" -Description "Erlaubte Produktivitätsstati auf dieser Storage" -Cardinality Multiple -EntityType @("Datastore","DatastoreCluster")
+    New-TagCategory -Name "Tenant" -Description "Tenant / Ressourcen Mieter. Verantwortliches Team das diese Ressourcen benötigt" -Cardinality Single
+    New-TagCategory -Name "Tenant Group" -Description "Größere Zuordnung für Tenant" -Cardinality Single
+    New-TagCategory -Name "Backup Plan" -Description "Geplantes Backup verfahren für diese VM" -Cardinality Single -EntityType "VM"
+    New-TagCategory -Name "DatastoreUsage" -Description "Verwendungszweck des Datastores (Backup, Archiv, NoVM)" -Cardinality Multiple -EntityType @("Datastore","DatastoreCluster")
+    New-TagCategory -Name "HostUsage" -Description "Verwendungszweck des VMHosts. Wird ein Host für Backup definiert, schreiben Backup Scripts automatisch dort hin (vCenter Clone Job)" -Cardinality Multiple
+
+    New-Tag -Category "Stage" -Name "Live" -Description "Live / wird produktiv genutzt"
+    New-Tag -Category "Stage" -Name "Test" -Description "Testsystem"
+    New-Tag -Category "Stage" -Name "Development" -Description "Development System"
+}
 
 
 
@@ -225,6 +272,10 @@ Set-Variable -Name "VimArgumentCompleters" -Scope global `
             param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
             (Get-TagCategory -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
         }
+        ViTag={#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            (Get-Tag -Category $FakeBoundParams.TagCategory -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
+        }
         #//XXX ToDo Der Network Script Block funktioniert besser. Der Fall EmptyString "" muss gesondert
         #behandelt werden. Das hier noch bei den anderen ArgumentCompleters ergänzen
         Network={#ScriptBlock
@@ -246,14 +297,14 @@ Set-Variable -Name "VimArgumentCompleters" -Scope global `
 Set-PowerCLIConfiguration -Scope User -DefaultVIServerMode Single -Confirm:$false
 #SSL Zertifikate ignorieren
 Set-PowerCLIConfiguration -Scope User -InvalidCertificateAction Ignore -Confirm:$false
-#Customer Experience Improvement Program
+#Tenant Experience Improvement Program
 Set-PowerCLIConfiguration -Scope User -ParticipateInCeip $false -Confirm:$false
 
 function Connect-VI{
 	[CmdletBinding()]
     param(
         [Alias("Server")]
-		[parameter(Mandatory=$true)] $vi,
+		$vi=$Global:vimConfig.defaultVcenter,
         [string]$User="",
         [string]$Password=""
 
@@ -565,27 +616,66 @@ Function VIM-Get-ContactTag {
     
 }
 
-Function VIM-Create-CustomAttributes {
-<#
-.SYNOPSIS
-    Erstellt die CustomAttributes die für Virtual-Infrastructure-Management benötigt werden.
-    Wenn Die CustomAttributes bereits vorhanden sind, werden sie kein zweites Mal angelegt
-.EXAMPLE
-    VIM-Create-CustomAttributes
-.EXAMPLE
-    VIM-Create-CustomAttributes
-    VIM-Copy-TagStructure -oldVCenter oldvcenter.domain.local -newVCenter newvcenter.domain.local
-#>
-        $a_catt = $global:vim_custom_attributes
 
+Function Set-VITag {
+    [CmdletBinding()]
 
-        ForEach ($att in $a_catt) {
-            if(-not (Get-CustomAttribute -Name $att.Name -ErrorAction SilentlyContinue)) {
-                New-CustomAttribute -Name $att.Name -TargetType $att.TargetType
+    param(
+        [Parameter(
+            Position=0, 
+            Mandatory=$true, 
+            ValueFromPipeline=$true,
+            ValueFromPipelineByPropertyName=$true)
+        ]
+        [Alias('VirtualMachine')]
+        $VM,
+        $TagCategory,
+        $TagValue
+    )
+
+    Begin{
+        if($null -ne $TagValue){
+            $tag=Get-Tag -Category $TagCategory -Name $TagValue -ErrorAction SilentlyContinue
+        }
+        else{
+            $tag=$null
+        }
+        $tagass=Get-TagAssignment -Entity $o_vm -Category $TagCategory -ErrorAction SilentlyContinue
+    }
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm = $_
+
+            if($null -eq $tag){
+                #Dann alles in der Kategorie Removen
+                if($null -ne $tagass){
+                    Remove-TagAssignment -TagAssignment $tagass -Confirm:$false | Out-Null
+                }
+            }
+            else{
+                if($null -ne $tagass){
+                    if($tagass -notcontains $tag){
+                        #Assignment korrigieren
+                        Remove-TagAssignment -TagAssignment $tagass -Confirm:$false | Out-Null
+                        New-TagAssignment -Entity $o_vm -Tag $tag | Out-Null
+
+                    }
+                    else {
+                        #Assignment passt bereits
+                    }
+                }
+                else{
+                    New-TagAssignment -Entity $o_vm -Tag $tag | Out-Null
+                }
             }
         }
+    }
+
+    End{}
 
 }
+
 
 
 Function VIM-Set-VMValue {
@@ -608,20 +698,28 @@ Function VIM-Set-VMValue {
     ]
     [Alias('VirtualMachine')]
     $VM,
-
     $DateCreated="",
-
     $DateUsedUntil="",
-
     [string]$CreationMethod="",
-
     [string]$CreationUser="",
-
     [string]$ArchiveOrigDatastore="",
-
     [string]$ArchiveDateArchived="",
+    [string]$ArchiveOrigFolderPath="",
 
-    [string]$ArchiveOrigFolderPath=""
+    [ArgumentCompleter(
+        {#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            (Get-Tag -Category "Tenant" -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
+        }
+    )]
+    $Tenant,
+    [ArgumentCompleter(
+        {#ScriptBlock
+            param($Command,$Parameter,$WordToComplete,$CommandAst,$FakeBoundParams)
+            (Get-Tag -Category "Application" -Name ("*"+$WordToComplete+"*")).Name | ForEach-Object {('"'+$_+'"')}
+        }
+    )]
+    $Application
 
     )
     
@@ -671,6 +769,17 @@ Function VIM-Set-VMValue {
             if(-not $ArchiveOrigDatastore -eq "") { $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.ArchiveOrigDatastore" -Value $ArchiveOrigDatastore}
             if(-not $ArchiveDateArchived  -eq "") { $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.ArchiveDateArchived"  -Value $ArchiveDateArchived}
             if(-not $ArchiveOrigFolderPath -eq ""){ $o_vm = VIM-Annotation -VM $o_vm -Attribute "VIM.ArchiveOrigFolderPath"  -Value $ArchiveOrigFolderPath}
+
+            #Tenant Tag
+            if($null -ne $Tenant){
+                Set-VITag -VM $o_vm -TagCategory "Tenant" -TagValue $Tenant
+            }
+
+            #Application Tag
+            if($null -ne $Tenant){
+                Set-VITag -VM $o_vm -TagCategory "Application" -TagValue $Application
+            }
+
             $o_vm
         }
     }
@@ -679,6 +788,7 @@ Function VIM-Set-VMValue {
 }
 
 Set-Alias -Name "VIM-Set-Value" -Value "VIM-Set-VMValue"
+Set-Alias -Name "Set-VMValue" -Value "VIM-Set-VMValue"
 
 Function VIM-Get-VMValue {
 <#
@@ -3671,7 +3781,7 @@ Function VIM-Copy-TagStructure {
         $tags+=Get-Tag -Category "Creator"
         $tags+=Get-Tag -Category "Application"
         $tags+=Get-Tag -Category "Storage Stage"
-        $tags+=Get-Tag -Category "Customer"
+        $tags+=Get-Tag -Category "Tenant"
         $tags+=Get-Tag -Category "Backup Plan"
         $tags+=Get-Tag -Category "DatastoreUsage"
         $tags+=Get-Tag -Category "HostUsage"
@@ -3701,8 +3811,8 @@ Function VIM-Export-TagStructure{
     Exportiert die Virtual Infrastructure Management Tag Struktur in ein XML File (CliXML)
     Dieses File kann in ein anderes vCenter wieder importiert werden
 .DESCRIPTION
-    Das exportierte File kannst du dann zum Beispiel zum Customern kopieren und dort importieren.
-    Beim Management System des Customern muss entsprechend das Virtual-Infrastructure-Management Modul installiert sein
+    Das exportierte File kannst du dann zum Beispiel zum Tenantn kopieren und dort importieren.
+    Beim Management System des Tenantn muss entsprechend das Virtual-Infrastructure-Management Modul installiert sein
 .EXAMPLE
     VIM-Export-TagStructure -File C:Temp\TagStructure.cli.xml
 #>
@@ -3723,7 +3833,7 @@ Function VIM-Export-TagStructure{
         $tags+=Get-Tag -Category "Creator"
         $tags+=Get-Tag -Category "Application"
         $tags+=Get-Tag -Category "Storage Stage"
-        $tags+=Get-Tag -Category "Customer"
+        $tags+=Get-Tag -Category "Tenant"
         $tags+=Get-Tag -Category "Backup Plan"
         $tags+=Get-Tag -Category "DatastoreUsage"
         $tags+=Get-Tag -Category "HostUsage"
@@ -6952,7 +7062,7 @@ Function Set-VMDocumentation {
 
             $out+='{{Template:VirtualMachine|'
             $out+='Name=' + $o_vm.Name + '|'
-            $out+='Customer=' + ($o_vm.Customer -join ", ") + '|'
+            $out+='Tenant=' + ($o_vm.Tenant -join ", ") + '|'
             $out+='BusinessService=' + (($a_tags.Tag | Where-Object {$_.Category -like "Business Service*"}).Name) + '|'
             $out+='Application=' + ($o_vm.Application -join ", ") + '|'
             $out+='Creator=' + ($o_vm.Creator -join ", ") + '|'
@@ -7047,12 +7157,12 @@ Function Recover-VMDocumentationFromWiki {
 
             $o_vmdoc=$o_vm | Get-VMDocumentation
 
-            #Customern Tags holen
-            $a_Customern=$o_vmdoc.Customer -split ", "
-            $o_Customern_tags=Get-Tag -Category "Customer" -Name $a_Customern
+            #Tenantn Tags holen
+            $a_Tenantn=$o_vmdoc.Tenant -split ", "
+            $o_Tenantn_tags=Get-Tag -Category "Tenant" -Name $a_Tenantn
 
-            #Customern Tags setzen
-            $o_Customern_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
+            #Tenantn Tags setzen
+            $o_Tenantn_tags | ForEach-Object {$o_vm | New-TagAssignment -Tag $_}
 
             #Business Service Tags holen
             $a_val=$o_vmdoc.BusinessService -split ", "
@@ -7346,6 +7456,9 @@ Register-ArgumentCompleter -CommandName Set-NetworkFocus -ParameterName Network 
 Register-ArgumentCompleter -CommandName Set-VMFocus -ParameterName VM -ScriptBlock $global:VimArgumentCompleters.VM
 #Register-ArgumentCompleter -CommandName VIM-ReRegister-VM -ParameterName VM -ScriptBlock $global:VimArgumentCompleters.VM
 
+
+Register-ArgumentCompleter -CommandName Set-ViTag -ParameterName TagCategory -ScriptBlock $Global:VimArgumentCompleters.TagCategory
+Register-ArgumentCompleter -CommandName Set-ViTag -ParameterName TagValue -ScriptBlock $Global:VimArgumentCompleters.ViTag
 
 Export-ModuleMember -Alias * -Function *
 

@@ -25,10 +25,30 @@ Function Connect-Netbox{
         $ApiUrl=$Global:Netbox.ApiUrl,
         $ApiToken=$Global:Netbox.ApiToken
     )
-    $ApiTokenSecure=ConvertTo-SecureString -String '611e80a35adb220239f158de2b469465492b8b9c' -AsPlainText -Force
+    $ApiTokenSecure=ConvertTo-SecureString -String $ApiToken -AsPlainText -Force
     Connect-nbAPI -APIurl $ApiUrl -Token $ApiTokenSecure
 }
 
+
+Function Sync-NetboxTenantToViTags {
+    [CmdletBinding()]
+    param()
+
+    Get-nbTenant | ForEach-Object {
+        $tenant=$_
+
+        $tag=Get-Tag -Name $tenant.name -Category "Tenant" -ErrorAction SilentlyContinue
+        if($null -eq $tag){
+            New-Tag -Category "Tenant" -Name $tenant.name -Description $tenant.description
+        }
+        else {
+            if($null -ne $tenant.description -and $tenant.description -ne ''){
+                $tag | Set-Tag -Description $tenant.description
+            }
+        }
+    }
+
+}
 
 
 Function Sync-VmToNetbox {
