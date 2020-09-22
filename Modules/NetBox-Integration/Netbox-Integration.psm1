@@ -65,7 +65,7 @@ Function Sync-VmToNetbox {
 
         $VM | ForEach-Object {
 
-            $o_vm=Get-VM $_
+            $o_vm=Get-VM $_ | VIM-Get-VMValue
 
             Write-Host("VM: " + $o_vm.Name)
 
