@@ -8,10 +8,10 @@ NAME
     
     
 SYNTAX
-    Get-MessageTrackingAllLogs [[-Sender] <Object>] [[-Recipient] <Object>] [[-Start] <Object>] [[-End] <Object>] 
+    Get-MessageTrackingAllLogs [[-Sender] <Object>] [[-Recipients] <Object>] [[-Start] <Object>] [[-End] <Object>] 
     [[-EventId] <String>] [[-InternalMessageId] <Object>] [[-MessageId] <Object>] [[-MessageSubject] <Object>] 
-    [[-Recipients] <Object>] [[-Reference] <Object>] [[-DomainController] <Object>] [[-ResultSize] <Object>] 
-    [-OnlySendEvents] [<CommonParameters>]
+    [[-Reference] <Object>] [[-DomainController] <Object>] [[-ResultSize] <Object>] [-OnlySendEvents] 
+    [<CommonParameters>]
     
     
 BESCHREIBUNG
@@ -46,7 +46,7 @@ PARAMETER
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         
-    -Recipient <Object>
+    -Recipients <Object>
         
         Erforderlich?                false
         Position?                    2
@@ -102,7 +102,7 @@ PARAMETER
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         
-    -Recipients <Object>
+    -Reference <Object>
         
         Erforderlich?                false
         Position?                    9
@@ -110,7 +110,7 @@ PARAMETER
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         
-    -Reference <Object>
+    -DomainController <Object>
         
         Erforderlich?                false
         Position?                    10
@@ -118,18 +118,10 @@ PARAMETER
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         
-    -DomainController <Object>
-        
-        Erforderlich?                false
-        Position?                    11
-        Standardwert                 
-        Pipelineeingaben akzeptieren?false
-        Platzhalterzeichen akzeptieren?false
-        
     -ResultSize <Object>
         
         Erforderlich?                false
-        Position?                    12
+        Position?                    11
         Standardwert                 
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false

@@ -19,7 +19,7 @@ AUSGABEN
     System.Object
     
 ALIASE
-    Keine
+    Get-SCP
     
 
 HINWEISE

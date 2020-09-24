@@ -3,7 +3,7 @@
 #
 # Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 10.09.2020
+# Generiert am: 24.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Exchange-AdminPS.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.3'
+ModuleVersion = '1.5'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -69,16 +69,34 @@ Description = 'Helper Modul für Exchange Administration aus normaler Powershell
 # NestedModules = @()
 
 # Aus diesem Modul zu exportierende Funktionen. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Funktionen vorhanden sind.
-FunctionsToExport = '*'
+FunctionsToExport = 'Show-ManagementRoles', 'Get-ServiceConnectionEndpoint', 
+               'Connect-LDAP', 'Get-MessageTrackingAllLogs', 'Get-DiskInfo', 
+               'Get-ManagedADObject', 'Sync-ExchangeRbacSelfManagement', 
+               'Convert-QuotaStringToKB', 'Reload-OfflineAddressBook', 
+               'Set-MailboxQuota', 'Search-PostfixTable', 'Get-MailboxQuota', 
+               'Show-MailboxFolderPermissionRecursive', 'Get-QuestCMGLog', 
+               'Test-MailFromExternal', 'Add-TeamMailboxPermissions', 
+               'ConvertTo-RegularMailbox', 'Get-RandomCharacters', 'Get-MailboxTopX', 
+               'Get-MailboxFolderPermissionRecursive', 'New-TeamDistributionGroup', 
+               'Get-ADUsers', 'Check-ExchangePostfixTables', 'New-TeamSharedMailbox', 
+               'Connect-Exchange', 'Add-TeamDistributionGroupPermissions', 
+               'Get-RandomPassword', 'New-PostfixEntry', 'Get-MailboxDatabaseSize', 
+               'Search-MailAddress', 'Get-PostfixTable', 
+               'Get-MailboxCalendarPermission', 'Get-AutoMapping', 
+               'Check-MailAddressExistance', 'Get-QuestCMGProcessedMessages', 
+               'Get-PostfixSession', 'Invoke-Postmap', 'Invoke-DelayedAction', 
+               'Sync-GroupPublicFolderPermissions', 'zimStart-Update', 
+               'Copy-DistributionGroupMembersToSendOnBehalf', 'zimEnd-Update', 
+               'Get-LdapSearchEntries', 'Move-ExchangeUser'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
-CmdletsToExport = '*'
+CmdletsToExport = @()
 
 # Die aus diesem Modul zu exportierenden Variablen
 # VariablesToExport = @()
 
 # Aus diesem Modul zu exportierende Aliase. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Aliase vorhanden sind.
-AliasesToExport = '*'
+AliasesToExport = 'Get-SCP'
 
 # Aus diesem Modul zu exportierende DSC-Ressourcen
 # DscResourcesToExport = @()

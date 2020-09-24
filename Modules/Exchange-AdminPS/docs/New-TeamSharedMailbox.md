@@ -9,8 +9,8 @@ NAME
     
 SYNTAX
     New-TeamSharedMailbox -RequestID <String> [-RequestFrom <Object>] -Team <String> [-Name <String>] -Owners 
-    <String[]> [-Members <String[]>] [-EmailAddresses <String[]>] [-NoQuota] [-UsedUntil <Object>] [-InformUsers] 
-    [-NoPostfixEntry] [<CommonParameters>]
+    <String[]> [-Members <String[]>] [-SendAsUsers <String[]>] [-EmailAddresses <String[]>] [-NoQuota] [-UsedUntil 
+    <Object>] [-InformUsers] [-NoPostfixEntry] [<CommonParameters>]
     
     
 BESCHREIBUNG
@@ -65,6 +65,14 @@ PARAMETER
         
     -Members <String[]>
         Mitglieder. Diese können als "Publishing Editor" zugreifen
+        
+        Erforderlich?                false
+        Position?                    named
+        Standardwert                 
+        Pipelineeingaben akzeptieren?false
+        Platzhalterzeichen akzeptieren?false
+        
+    -SendAsUsers <String[]>
         
         Erforderlich?                false
         Position?                    named
