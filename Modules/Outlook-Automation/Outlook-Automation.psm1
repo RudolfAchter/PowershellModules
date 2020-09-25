@@ -496,6 +496,9 @@ Function New-OutlookMail{
             Inhalt
         </body>
     </html>
+.PARAMETER FromAccount
+    Von welchem Account soll die Mail verschickt werden. Funktioniert aber anscheinend nicht mit IMAP / POP3 Accounts
+    mal testen ob es von einem Exchange Account funktioniert
 .PARAMETER Send
     Switch zu versenden der Mail. Wenn "Send" nicht angegeben ist öffnet sich lediglich Outlook mit der
     E-Mail. Die E-Mail kann dann nochmal betrachtet und dann manuell versendet werden.  
@@ -511,6 +514,7 @@ Function New-OutlookMail{
         [string]$HTMLBody,
         [string]$Subject,
         $Recipients,
+        [string]$FromAccount,
         [switch]$Send,
         [switch]$WithSignature
     )
@@ -535,6 +539,21 @@ Function New-OutlookMail{
         $oOutlook = New-Object -ComObject Outlook.Application 
         $oMapiNs = $oOutlook.GetNameSpace("MAPI")
         $oMailMsg = $oOutlook.CreateItem(0)
+
+        #Richtigen Absender Account einstellen
+        if($null -ne $FromAccount){
+            Write-Host("Setting FromAccount")
+            $oAccount=$oOutlook.Session.Accounts.Item($FromAccount)
+            #//XXX hier weiter
+            $oMailMsg.SendUsingAccount = $oOutlook.Session.Accounts.Item($FromAccount)#$oAccount
+        }
+
+
+        ForEach($recipient in $Recipients){
+            [Void]$oMailMsg.Recipients.Add($recipient) 
+        }
+
+
         $oMailMsg.GetInspector.Activate()
 
         $start=$oMailMsg.HTMLBody.IndexOf("<body")
@@ -548,7 +567,7 @@ Function New-OutlookMail{
 
         #Write-Host $sSignature
     
-    
+
         
         if($WithSignature){
             #$oMailMsg.HTMLBody+=$sSignature
@@ -560,10 +579,6 @@ Function New-OutlookMail{
 
         $oMailMsg.Subject=$Subject
     
-        ForEach($recipient in $Recipients){
-            [Void]$oMailMsg.Recipients.Add($recipient) 
-        }
-
         If($Send){
             $oMailMsg.Send()
         }

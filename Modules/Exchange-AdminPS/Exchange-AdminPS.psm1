@@ -204,6 +204,27 @@ $Global:AdAutocompleters = @{
 
     }
 
+    RoleGroup={
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+        if($wordToComplete -ne ''){
+            $results=Get-RoleGroup -Filter ('Name -like "*' + $wordToComplete + '*"')
+        }
+        else{
+            $results=Get-RoleGroup
+        }
+
+        if($results -ne $null){
+            $results | ForEach-Object {
+                $result=$_
+                ('"' + $result.Name + '"')
+            }
+        }
+        else{
+            '<#No RoleGroup found#>'
+        }
+
+    }
+
 }
 
 $Global:exchange_current_ad_credential=$null
@@ -218,12 +239,26 @@ Function Connect-Exchange {
     Das Commandlet verbindet sich über PS-Remoting mit einem Exchange Server.
     Die notwendigen Module zur Administration werden vom Exchange Server geladen
     es muss keine zusätzliche Software an deinem Client installiert werden
+.PARAMETER ExchangeServer
+    Hostname eines Exchange ClientAccess Servers über den gemanaged
+    werden soll. Standardmäßig wird der Server aus dem Config File verwendet
+.PARAMETER Credential
+    Credential mit dem sich am Exchange Server angemeldet wird. Standardmäßig
+    wird das Credential vom User mit Get-Credential abgefragt. Wenn du das
+    Credential explizit auf $null setzt wird eine Berechtigung deiner aktuellen
+    Powershell Sitzung verwendet
 .LINK
     https://docs.microsoft.com/de-de/powershell/exchange/connect-to-exchange-servers-using-remote-powershell?view=exchange-ps
 .LINK
     https://www.msxfaq.de/code/powershell/psexremote.htm
 .LINK
     https://social.technet.microsoft.com/Forums/ie/en-US/529bd0ef-5e88-4808-a5ac-dc07ca8660f3/importpssession-is-not-importing-cmdlets-when-used-in-a-custom-module?forum=winserverpowershell
+.EXAMPLE
+    Connect-Exchange -Credential $null
+    #Fragt nach keinen Credentials. Verwendet Rechte der aktuellen Powershell Sitzung
+.EXAMPLE
+    Connect-Exchange -Exchangeserver host.domain.com
+    #Verbindet sich mittels Powershell Remoting auf den Exchange CAS host.domain.com
 #>
     param(
         $ExchangeServer=$Global:Exchange.DefaultHost,
@@ -231,11 +266,20 @@ Function Connect-Exchange {
     )
     # Anmeldung mit aktuellen Benutzer im gleichen Forest
     
+    if($null -eq $Credential){
+        $h_credential_args=@{}
+    }
+    else{
+        $h_credential_args=@{
+            Credential=$Credential
+        }
+    }
+
     $session = new-pssession `
        -ConfigurationName "Microsoft.Exchange" `
        -ConnectionUri ("http://" + $ExchangeServer + "/PowerShell/") `
        -Authentication Kerberos `
-       -Credential $Credential
+       @h_credential_args
 
 
     $Global:exchange_current_ad_credential=$Credential
@@ -1574,6 +1618,19 @@ Function Sync-ExchangeRbacSelfManagement {
         $adCredentials=(Get-Credential -Message "AD Credentials for Exchange Administrator")
     )
 
+    #Trick um mit oder ohne extra Credentials arbeiten zu können
+    #Wenn ich extra adCredentials habe, kann ich die mit einem "Splat" übergeben.
+    #Wenn ich keine Credentials habe wird beim Splat der Credentials Parameter einfach ausgelassen
+    #Siehe vorkommnisse von "@h_credential_args"
+    #So kann ich den Task mit dem ServiceUser laufen lassen ohne ein KlartextPasswort im Script haben zu müssen
+    if($null -eq $adCredentials){
+        $h_credential_args=@{}
+    }
+    else{
+        $h_credential_args=@{
+            Credential=$adCredentials
+        }
+    }
 
     Get-ADGroup -SearchBase 'OU=group,OU=idm,DC=ads,DC=uni-passau,DC=de' -Filter * -Properties Description | Sort-Object -Property Name | ForEach-Object {
         $TeamAdGroup=$_
@@ -1588,21 +1645,21 @@ Function Sync-ExchangeRbacSelfManagement {
             $newDescription=("These are Mailboxes of Team "+ $TeamAdGroup.Name + " : " + $TeamAdGroup.Description)
             if($newDescription -ne $mailboxesGroup.Description){
                 Write-Verbose("Set-ADGroup -Name $mailboxesGroupName -Description $newDescription")
-                $mailboxesGroup | Set-ADGroup -Description $newDescription -Credential $adCredentials
+                $mailboxesGroup | Set-ADGroup -Description $newDescription @h_credential_args
             }
         }
         Catch{
             Write-Verbose("New-ADGroup -Name $mailboxesGroupName")
             $mailboxesGroup=New-ADGroup -Name $mailboxesGroupName -Path 'OU=MgmtScope-RecipientGroups,OU=Microsoft Exchange Security Groups,DC=ads,DC=uni-passau,DC=de' `
-                -GroupScope Universal -Credential $adCredentials -Description ("These are Mailboxes of Team "+ $TeamAdGroup.Name + " : " + $TeamAdGroup.Description) `
-                -PassThru
+                -GroupScope Universal -Description ("These are Mailboxes of Team "+ $TeamAdGroup.Name + " : " + $TeamAdGroup.Description) `
+                -PassThru @h_credential_args
         }
 
         $defaultTeamMailbox=Get-ADUser -Filter ('Name -eq "' + $TeamName + '_Team"')
         if($defaultTeamMailbox -ne $null){
             if($defaultTeamMailbox.SamAccountName -notin ($mailboxesGroup | Get-ADGroupMember).SamAccountName) {
                 Write-Verbose("Add-ADGroupMember -Members $defaultTeamMailbox")
-                $mailboxesGroup | Add-ADGroupMember -Members $defaultTeamMailbox -Credential $adCredentials
+                $mailboxesGroup | Add-ADGroupMember -Members $defaultTeamMailbox @h_credential_args
             }
             else{
                 Write-Verbose("No New TeamMailbox $TeamName")
@@ -1657,7 +1714,7 @@ Function Sync-ExchangeRbacSelfManagement {
             }
             #>
 
-            #Move-ADObject -Identity $roleGroup.DistinguishedName  -TargetPath 'OU=RestrictedSecurityScopeGroups,OU=Microsoft Exchange Security Groups,DC=ads,DC=uni-passau,DC=de' -Credential $adCredentials
+            #Move-ADObject -Identity $roleGroup.DistinguishedName  -TargetPath 'OU=RestrictedSecurityScopeGroups,OU=Microsoft Exchange Security Groups,DC=ads,DC=uni-passau,DC=de' @h_credential_args
         }
 
         #Keine Ahnung wieso das notwendig ist aber manchmal geht das vorherige nicht
@@ -1697,6 +1754,147 @@ Function Sync-ExchangeRbacSelfManagement {
 }
 
 
+Function Sync-RbacSelfManagementRights {
+
+    Get-ADGroup -SearchBase 'OU=group,OU=idm,DC=ads,DC=uni-passau,DC=de' -Filter * -Properties Description | Sort-Object -Property Name | ForEach-Object {
+        $TeamAdGroup=$_
+        $TeamADGroupMember=$TeamAdGroup | Get-ADGroupMember
+
+        Write-Host ("Working On: " + $TeamAdGroup.Name + " : " + $TeamAdGroup.Description)
+
+        $TeamName=$TeamAdGroup.Name
+        $mailboxesGroupName=($TeamName + "_Mailboxes.UG")
+
+        $team_mailboxes=Get-ADGroupMember $mailboxesGroupName | Where-Object{$_.objectClass -eq "user"}
+
+        #$roleMembersToCheck
+        $ErrorActionPreference="Stop"
+
+        #NUR Rechte überprüfen die Innerhalb der OU "OU=account,OU=idm,DC=ads,DC=uni-passau,DC=de" sind
+        #Ich sammle hier alle AD User die Vollzugriff Rechte auf die Mailbox haben
+        $fullAccessAdUsers=$team_mailboxes | %{Get-MailboxPermission $_.name} | 
+            Where-Object {$_.AccessRights -contains "FullAccess" -and $_.IsInherited -eq $false} | ForEach-Object {
+                $permission=$_
+                Try{
+                    $userName=($permission.User -split "\\")[1]
+                    if($null -ne $userName){
+                        $adUser=Get-ADUser -Filter "Name -eq '$userName'" -SearchBase "OU=account,OU=idm,DC=ads,DC=uni-passau,DC=de"
+                        #Gefundenen ADUser zurück geben wenn Erfolgreich
+                        $adUser
+                    }
+                        
+                        
+                }
+                Catch{
+                    Write-Error("Permission User '" + $permission.User + "' nicht gefunden")
+                }
+            } | Sort-Object -Property Name -Unique
+
+        $ErrorActionPreference="Continue"
+
+        #$fullAccessPermissions
+        $fullAccessPermissionNames=$fullAccessAdUsers.Name
+
+        $roleGroupName=$TeamName + "-SharedMailboxMgmt"
+        $roleMembersToCheck=Get-RoleGroupMember -Identity $roleGroupName
+
+        ForEach($roleMember in $roleMembersToCheck){
+            if($roleMember.Name -in $fullAccessPermissionNames){
+                Write-Host($roleMember.Name + " stays in $roleGroupName") -ForegroundColor Green
+            }
+            else{
+                Write-Host($roleMember.Name + " gets removed from $roleGroupName") -ForegroundColor Red
+                Remove-RoleGroupMember -Identity $roleGroupName -Member $roleMember.Name -Confirm:$false
+            }
+        }
+    }
+
+
+    #Rechte hinzufügen bei Leuten die Besitzer einer Shared Mailbox sind
+    Get-ADGroup -SearchBase 'OU=group,OU=idm,DC=ads,DC=uni-passau,DC=de' -Filter * -Properties Description | Sort-Object -Property Name | ForEach-Object {
+        $TeamAdGroup=$_
+        $TeamADGroupMember=$TeamAdGroup | Get-ADGroupMember
+
+        Write-Host ("Working On: " + $TeamAdGroup.Name + " : " + $TeamAdGroup.Description)
+
+        $TeamName=$TeamAdGroup.Name
+        $mailboxesGroupName=($TeamName + "_Mailboxes.UG")
+
+        Get-ADGroupMember $mailboxesGroupName | Where-Object{$_.objectClass -eq "user"} | ForEach-Object {
+            $team_mailbox_adObject=$_
+            $team_mailbox=Get-Mailbox $team_mailbox_adObject.Name
+            $team_mailbox_mgmtGroupName=$TeamName + "-SharedMailboxMgmt"
+
+            Write-Host("Working on Mailbox: " + $team_mailbox.Name)
+
+            $team_mailbox | Get-MailboxPermission | Where-Object {$_.AccessRights -contains "FullAccess"} | ForEach-Object {
+                Try{
+                    $o_aduser=Get-ADUser (($_.User -split "\\")[1]) -Properties MemberOf
+                    if($o_aduser.MemberOf -contains $TeamAdGroup.DistinguishedName){
+                        #Wenn der Mailbox FullAccess User Mitglied in der entsprechenden Team AD Gruppe ist, dann dafür sorgen,
+                        #dass er Management Rechte auf die Mailbox bekommt
+
+                        $member=Get-RoleGroupMember -Identity $team_mailbox_mgmtGroupName | Where-Object {$_.Name -eq $o_aduser.Name}
+
+                        if($null -eq $member){
+                            #Wenn ich einen ADUser gefunden habe dann setze ich für den das Recht
+                            Write-Host("Setting Management Membership for " + $o_aduser.Name + " to Group " + $team_mailbox_mgmtGroupName) -BackgroundColor Black -ForegroundColor Green
+                            Add-RoleGroupMember -Identity $team_mailbox_mgmtGroupName -Member $o_aduser.Name
+                        }
+                        else{
+                            Write-Host("User "+ $o_aduser.Name + " already MemberOf Group " + $team_mailbox_mgmtGroupName) -ForegroundColor Cyan
+                        }
+                    }
+                }
+                Catch{}
+            }
+                
+        } 
+    }
+
+
+    Write-host("Getting Distribution Group Managers")
+    $currentDgManagers=Get-DistributionGroup | ForEach-Object {
+        $distGroup=$_
+        $distGroup.ManagedBy | ForEach-Object {
+            $dgManager=$_
+            Try{
+                Get-Mailbox -Identity $dgManager -OrganizationalUnit 'OU=account,OU=idm,DC=ads,DC=uni-passau,DC=de'
+            }
+            Catch{}
+        }
+    } | Sort-Object -Property Name -Unique
+
+    $rgMembers=Get-RoleGroupMember -Identity zim-SelfManaged-DistributionGroupManagement
+
+    $rgMembers | ForEach-Object {
+        $rgMember=$_
+        if($rgMember.Name -in $currentDgManagers.Name){
+            Write-Host($rgMember.Name + " stays in RoleGroup zim-SelfManaged-DistributionGroupManagement") -ForegroundColor Green
+        }
+        else {
+            Write-Host($rgMember.Name + " gets removed from RoleGroup zim-SelfManaged-DistributionGroupManagement") -ForegroundColor Red
+            Remove-RoleGroupMember -Identity zim-SelfManaged-DistributionGroupManagement -Member $rgMember.Name -Confirm:$false
+        }
+
+    }
+
+    $currentDgManagers | ForEach-Object {
+        $dgManager=$_
+
+        if($dgManager.Name -notin $rgMembers.Name){
+            Write-Host($dgManager.Name + " gets added to RoleGroup zim-SelfManaged-DistributionGroupManagement") -ForegroundColor Green
+            Add-RoleGroupMember -Identity zim-SelfManaged-DistributionGroupManagement -Member $dgManager.Name
+        }
+        else {
+            Write-Host($dgManager.Name + " is already in RoleGroup zim-SelfManaged-DistributionGroupManagement") -ForegroundColor Cyan
+        }
+
+    }
+
+}
+
+
 
 Register-ArgumentCompleter -CommandName Get-LdapSearchEntries -ParameterName BaseDN -ScriptBlock $Global:LdapAutocompleters.BaseDN
 
@@ -1728,8 +1926,9 @@ Register-ArgumentCompleter -CommandName Get-Mailbox -ScriptBlock $Global:AdAutoc
 
 
 Register-ArgumentCompleter -CommandName Get-DistributionGroup -ParameterName Identity -ScriptBlock $Global:AdAutocompleters.DistributionGroup
-
-
-
-
 Register-ArgumentCompleter -CommandName Get-ADUser -ParameterName Identity -ScriptBlock $Global:AdAutocompleters.User
+
+Register-ArgumentCompleter -CommandName Add-RoleGroupMember -ParameterName Identity -ScriptBlock $Global:AdAutocompleters.RoleGroup
+Register-ArgumentCompleter -CommandName Add-RoleGroupMember -ParameterName Member -ScriptBlock $Global:AdAutocompleters.User
+Register-ArgumentCompleter -CommandName Remove-RoleGroupMember -ParameterName Identity -ScriptBlock $Global:AdAutocompleters.RoleGroup
+Register-ArgumentCompleter -CommandName Remove-RoleGroupMember -ParameterName Member -ScriptBlock $Global:AdAutocompleters.User

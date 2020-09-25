@@ -20,6 +20,8 @@ BESCHREIBUNG
 
 PARAMETER
     -ExchangeServer <Object>
+        Hostname eines Exchange ClientAccess Servers über den gemanaged
+        werden soll. Standardmäßig wird der Server aus dem Config File verwendet
         
         Erforderlich?                false
         Position?                    1
@@ -28,6 +30,10 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -Credential <Object>
+        Credential mit dem sich am Exchange Server angemeldet wird. Standardmäßig
+        wird das Credential vom User mit Get-Credential abgefragt. Wenn du das
+        Credential explizit auf $null setzt wird eine Berechtigung deiner aktuellen
+        Powershell Sitzung verwendet
         
         Erforderlich?                false
         Position?                    2
@@ -44,6 +50,24 @@ PARAMETER
 EINGABEN
     
 AUSGABEN
+    
+    -------------------------- BEISPIEL 1 --------------------------
+    
+    PS C:\>Connect-Exchange -Credential $null
+    
+    #Fragt nach keinen Credentials. Verwendet Rechte der aktuellen Powershell Sitzung
+    
+    
+    
+    
+    -------------------------- BEISPIEL 2 --------------------------
+    
+    PS C:\>Connect-Exchange -Exchangeserver host.domain.com
+    
+    #Verbindet sich mittels Powershell Remoting auf den Exchange CAS host.domain.com
+    
+    
+    
     
     
 VERWANDTE LINKS
