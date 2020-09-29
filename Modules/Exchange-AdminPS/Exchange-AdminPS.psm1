@@ -1895,6 +1895,210 @@ Function Sync-RbacSelfManagementRights {
 }
 
 
+Function Install-OwaDesign {
+<#
+.EXAMPLE
+    Get-ExchangeServer | Where-Object ServerRole -eq "Mailbox" | Install-OwaDesign
+#>
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $CasHosts,
+        $CasCredential=(Get-Credential -Message "Admin für Exchange Server"),
+        [string]$FrontEndSourceFolder="H:\git\intern\zim-config-files\msxpo1-test.adstest.uni-passau.de\C\Program Files\Microsoft\Exchange Server\V15\FrontEnd\HttpProxy\owa\auth\themes\resources",
+        [string]$BackEndSourceFolder="H:\git\intern\zim-config-files\msxpo1-test.adstest.uni-passau.de\C\Program Files\Microsoft\Exchange Server\V15\ClientAccess\Owa",
+        [string]$TemporaryDrive="O"
+        
+    )
+
+    Begin{}
+
+    Process{
+
+        $CasHosts | ForEach-Object{
+            if($_.GetType().Name -eq "PSObject"){
+                $CasHost=$_.Fqdn
+            }
+            else{
+                $CasHost=$_
+            }
+        
+            
+            $FrontEndSourceFiles=@("logon.css","errorFE.css","Sign_in_arrow.png","Sign_in_arrow_rtl.png","owa_text_blue.png")
+
+            $PsSession=New-PSSession -ComputerName $CasHost -Credential $CasCredential
+
+            #Ich Mounte Mir Temporär ein Administratives Share vom Exchange Server
+            $TempPsDrive=New-PSDrive -Name $TemporaryDrive -PSProvider FileSystem -Root ('\\' + $CasHost + '\c$') -Credential $CasCredential -Scope Global
+
+            #Der Remote Pfad ist nich C:\ irgendwas sondern O:\ irgendwas (oder was auch immer mein Teporary Drive ist
+            $o_eip=Invoke-Command -Session $PsSession -ScriptBlock {Get-Item $env:ExchangeInstallPath}
+            $s_remote_eip=$o_eip.FullName -replace [regex]::escape($eip.PSDrive.Root),($TemporaryDrive+":\")
+        
+            #Get-ExchangeServer -Identity $CasHost  | ?{$_.ServerRole -eq "Mailbox"} | fl *
+            #Get-Item 'O:\Program Files\Microsoft\Exchange Server\V15\FrontEnd\HttpProxy\owa\auth\15.1.1531\themes\resources'
+
+            #Ich hole mir die Versions Verzeichnisse vom FrontEnd Server
+            $dest_folders=Get-Item ($s_remote_eip + '\FrontEnd\HttpProxy\owa\auth\15.1.*')
+
+            #FrontEnd ProxyServer Files kopieren
+            ForEach($dest_folder in $dest_folders){
+                ForEach($filename in $FrontEndSourceFiles){
+                    $source_file=($FrontEndSourceFolder +"\"+ $filename)
+                    $dest_path=($dest_folder.FullName + "\themes\resources")
+                    Write-Host("Copy $source_file to $dest_path")
+                    Get-Item -Path $source_file | Copy-Item -Destination $dest_path
+                }
+            }
+
+            #Backend
+            $dest_folders=Get-Item($s_remote_eip + "\ClientAccess\Owa\prem\15.1.*")
+
+            ForEach($dest_folder in $dest_folders){
+            
+                Write-Host("Copy Files to: " + ($dest_folder.FullName + "\resources\themes"))
+                Get-Item ($BackEndSourceFolder + "\prem\resources\themes\unipassau") | Copy-Item -Destination ($dest_folder.FullName + "\resources\themes") -Force
+
+                Write-Host("Copy Files to: " + ($dest_folder.FullName + "\resources\styles"))
+                #Theme .css und .less file
+                Get-Item ($BackEndSourceFolder + "\prem\resources\styles\*.theme.unipassau.*") | Copy-Item -Destination ($dest_folder.FullName + "\resources\styles") -Force
+
+                #language Selection .css
+                Get-Item ($BackEndSourceFolder + "\prem\resources\styles\languageselection.css") | Copy-Item -Destination ($dest_folder.FullName + "\resources\styles") -Force
+
+                #Bild owa_text_blue.png
+                Get-Item ($BackEndSourceFolder + "\prem\resources\images\0\owa_text_blue.png") | Copy-Item -Destination ($dest_folder.FullName + "\resources\images\0") -Force
+                
+                #sign_in_arrow Pics
+                Get-Item ($BackEndSourceFolder + "\prem\resources\images\0\sign_in_arrow*.png") | Copy-Item -Destination ($dest_folder.FullName + "\resources\images\0") -Force
+
+
+
+                [xml]$xml_manifest=Get-Content ($dest_folder.FullName + "\manifests\stylemanifest.xml")
+
+                if($xml_manifest.SelectSingleNode("//styles/themeVariables[@themeName='unipassau']")){
+                    #Write-Host("true")
+                }
+                else{
+                    #Wenn noch nicht vorhanden fuege ich dieses Design als zusätzliches in das Manifest hinzu
+                    Write-Host("Updating Manifest: "+($dest_folder.FullName + "\manifests\stylemanifest.xml"))
+                    $elem=$xml_manifest.CreateElement("themeVariables")
+                    $elem.SetAttribute("themeName","unipassau")
+                    $elem.SetAttribute("fileName","_fabric.color.variables.theme.unipassau.less")
+                    $xml_manifest.styles.AppendChild($elem)
+
+                    $dest_xml_path=($dest_folder.FullName + "\manifests\stylemanifest.xml")
+
+                    $xml_manifest.Save($dest_xml_path)
+                }
+            }
+
+            #PSRemoting Module entfernen
+            #Get-Module tmp_* | Remove-Module
+
+            Remove-PSDrive -Name $TemporaryDrive
+        }
+    }
+
+    End{}
+
+}
+
+<#
+# Cleanup logs older than the set of days in numbers
+$days = 2
+ 
+# Path of the logs that you like to cleanup
+$IISLogPath = "C:\inetpub\logs\LogFiles\"
+$ExchangeLoggingPath = "C:\Program Files\Microsoft\Exchange Server\V15\Logging\"
+$ETLLoggingPath = "C:\Program Files\Microsoft\Exchange Server\V15\Bin\Search\Ceres\Diagnostics\ETLTraces\"
+$ETLLoggingPath2 = "C:\Program Files\Microsoft\Exchange Server\V15\Bin\Search\Ceres\Diagnostics\Logs\"
+#>
+
+
+Function Invoke-CleanExchangeLogFiles{
+    [CmdletBinding()]
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $ExchangeServer,
+        $Credential=(Get-Credential -Message "Admin für Exchange Server"),
+        $KeepLogsDays=30,
+        [ValidateSet("iis","exchange","etl1","etl2")]
+        $WhichLogs=$null,
+        [switch]$Show,
+        [switch]$JustShow
+    )
+
+
+    Begin{
+        if($JustShow){
+            $Show=$true
+        }
+
+        $logPath=@{
+            iis="C:\inetpub\logs\LogFiles\"
+            exchange="{{ExchangeInstallPath}}\Logging"
+            etl1="{{ExchangeInstallPath}}\Bin\Search\Ceres\Diagnostics\ETLTraces"
+            etl2="{{ExchangeInstallPath}}\Bin\Search\Ceres\Diagnostics\Logs"
+        }
+        $KeepLastWriteTime=(Get-Date).AddDays(-$KeepLogsDays)
+    }
+
+    Process{
+        $ExchangeServer | ForEach-Object {
+            if($_.GetType().Name -eq "PSObject"){
+                $exsrv=$_
+            }
+            else{
+                $exsrv=Get-ExchangeServer $_   
+            }
+            $pss=New-PSSession $exsrv.Fqdn -Credential $Credential
+
+            
+            
+            if($null -eq $WhichLogs){
+                $logsToProcess=$logPath.Keys
+            }
+            else{
+                $logsToProcess=$WhichLogs
+            }
+            
+            $exInstallPath=Invoke-Command -Session $pss -ScriptBlock {$env:ExchangeInstallPath}
+            
+
+            ForEach($log in $logsToProcess){
+                $p_logPath=$logPath.$log -replace [regex]::Escape('{{ExchangeInstallPath}}'),$exInstallPath
+                
+                #START Das hier passiert alles auf dem Remote Exchange Server
+                Invoke-Command -Session $pss -ArgumentList @($p_logPath,$KeepLastWriteTime,$Show,$JustShow) -ScriptBlock {
+                    param($p_logPath,$KeepLastWriteTime,$Show,$JustShow)
+                    Write-Host("p_logPath: $p_logPath")
+                    if(Test-Path $p_logPath){
+                        Get-ChildItem $p_logPath -Recurse | 
+                            Where-Object{$_.Extension -in @(".log",".blg",".etl") -and $_.LastWriteTime -lt $KeepLastWriteTime} | ForEach-Object {
+                                If($Show){
+                                    $_
+                                }
+                                If(-not $JustShow){
+                                    #Dann Remove
+                                    $_ | Remove-Item
+                                }
+                            }
+                    }
+                }
+                #ENDE Das hier passiert alles auf dem Remote Exchange Server
+            }
+
+            
+            Remove-PSSession -Session $pss
+
+        } 
+    }
+
+    End{}
+}
+
+
+
 
 Register-ArgumentCompleter -CommandName Get-LdapSearchEntries -ParameterName BaseDN -ScriptBlock $Global:LdapAutocompleters.BaseDN
 

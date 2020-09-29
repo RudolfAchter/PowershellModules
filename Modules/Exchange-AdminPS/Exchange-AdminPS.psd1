@@ -3,7 +3,7 @@
 #
 # Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 25.09.2020
+# Generiert am: 29.09.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Exchange-AdminPS.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.10'
+ModuleVersion = '1.11'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -69,27 +69,28 @@ Description = 'Helper Modul für Exchange Administration aus normaler Powershell
 # NestedModules = @()
 
 # Aus diesem Modul zu exportierende Funktionen. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Funktionen vorhanden sind.
-FunctionsToExport = 'Show-ManagementRoles', 'Get-ServiceConnectionEndpoint', 
-               'Get-MessageTrackingAllLogs', 'Connect-LDAP', 'Get-DiskInfo', 
-               'Get-ManagedADObject', 'Sync-ExchangeRbacSelfManagement', 
-               'Convert-QuotaStringToKB', 'Reload-OfflineAddressBook', 
-               'Set-MailboxQuota', 'Search-PostfixTable', 'Get-MailboxQuota', 
-               'Show-MailboxFolderPermissionRecursive', 'Get-QuestCMGLog', 
-               'Test-MailFromExternal', 'ConvertTo-RegularMailbox', 
-               'Add-TeamMailboxPermissions', 'Get-RandomCharacters', 
-               'Get-MailboxFolderPermissionRecursive', 'Get-MailboxTopX', 
-               'New-TeamDistributionGroup', 'Get-ADUsers', 
-               'Check-ExchangePostfixTables', 'New-TeamSharedMailbox', 
-               'Connect-Exchange', 'Add-TeamDistributionGroupPermissions', 
-               'Get-RandomPassword', 'New-PostfixEntry', 'Get-MailboxDatabaseSize', 
-               'Get-MailboxCalendarPermission', 'Get-PostfixTable', 
-               'Search-MailAddress', 'Get-AutoMapping', 'Check-MailAddressExistance', 
-               'Get-QuestCMGProcessedMessages', 'Get-PostfixSession', 
-               'Invoke-Postmap', 'Invoke-DelayedAction', 
-               'Sync-GroupPublicFolderPermissions', 'zimStart-Update', 
-               'Sync-RbacSelfManagementRights', 
-               'Copy-DistributionGroupMembersToSendOnBehalf', 'zimEnd-Update', 
-               'Get-LdapSearchEntries', 'Move-ExchangeUser'
+FunctionsToExport = 'Get-MailboxCalendarPermission', 'Check-ExchangePostfixTables', 
+               'zimStart-Update', 'Get-PostfixTable', 'zimEnd-Update', 
+               'Set-MailboxQuota', 'Get-DiskInfo', 'Show-ManagementRoles', 
+               'Show-MailboxFolderPermissionRecursive', 
+               'Sync-GroupPublicFolderPermissions', 'Reload-OfflineAddressBook', 
+               'Get-ManagedADObject', 'Get-MailboxDatabaseSize', 
+               'New-TeamDistributionGroup', 'Get-RandomCharacters', 
+               'New-PostfixEntry', 'Get-MessageTrackingAllLogs', 
+               'Add-TeamMailboxPermissions', 'Invoke-DelayedAction', 
+               'Connect-Exchange', 'New-TeamSharedMailbox', 'Get-MailboxQuota', 
+               'Get-QuestCMGLog', 'Sync-RbacSelfManagementRights', 
+               'Search-MailAddress', 'Move-ExchangeUser', 
+               'Sync-ExchangeRbacSelfManagement', 'Get-MailboxTopX', 
+               'Invoke-CleanExchangeLogFiles', 'Get-RandomPassword', 
+               'Copy-DistributionGroupMembersToSendOnBehalf', 
+               'Convert-QuotaStringToKB', 'Add-TeamDistributionGroupPermissions', 
+               'Get-PostfixSession', 'Check-MailAddressExistance', 'Invoke-Postmap', 
+               'Install-OwaDesign', 'Test-MailFromExternal', 'Get-AutoMapping', 
+               'Get-ServiceConnectionEndpoint', 'Connect-LDAP', 'Get-ADUsers', 
+               'Get-QuestCMGProcessedMessages', 'Search-PostfixTable', 
+               'Get-LdapSearchEntries', 'ConvertTo-RegularMailbox', 
+               'Get-MailboxFolderPermissionRecursive'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
 CmdletsToExport = @()
