@@ -3,7 +3,7 @@
 #
 # Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 29.09.2020
+# Generiert am: 02.10.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Exchange-AdminPS.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.11'
+ModuleVersion = '1.13'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -69,28 +69,30 @@ Description = 'Helper Modul für Exchange Administration aus normaler Powershell
 # NestedModules = @()
 
 # Aus diesem Modul zu exportierende Funktionen. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Funktionen vorhanden sind.
-FunctionsToExport = 'Get-MailboxCalendarPermission', 'Check-ExchangePostfixTables', 
-               'zimStart-Update', 'Get-PostfixTable', 'zimEnd-Update', 
-               'Set-MailboxQuota', 'Get-DiskInfo', 'Show-ManagementRoles', 
-               'Show-MailboxFolderPermissionRecursive', 
-               'Sync-GroupPublicFolderPermissions', 'Reload-OfflineAddressBook', 
-               'Get-ManagedADObject', 'Get-MailboxDatabaseSize', 
-               'New-TeamDistributionGroup', 'Get-RandomCharacters', 
-               'New-PostfixEntry', 'Get-MessageTrackingAllLogs', 
-               'Add-TeamMailboxPermissions', 'Invoke-DelayedAction', 
-               'Connect-Exchange', 'New-TeamSharedMailbox', 'Get-MailboxQuota', 
-               'Get-QuestCMGLog', 'Sync-RbacSelfManagementRights', 
-               'Search-MailAddress', 'Move-ExchangeUser', 
-               'Sync-ExchangeRbacSelfManagement', 'Get-MailboxTopX', 
-               'Invoke-CleanExchangeLogFiles', 'Get-RandomPassword', 
-               'Copy-DistributionGroupMembersToSendOnBehalf', 
-               'Convert-QuotaStringToKB', 'Add-TeamDistributionGroupPermissions', 
-               'Get-PostfixSession', 'Check-MailAddressExistance', 'Invoke-Postmap', 
-               'Install-OwaDesign', 'Test-MailFromExternal', 'Get-AutoMapping', 
-               'Get-ServiceConnectionEndpoint', 'Connect-LDAP', 'Get-ADUsers', 
-               'Get-QuestCMGProcessedMessages', 'Search-PostfixTable', 
-               'Get-LdapSearchEntries', 'ConvertTo-RegularMailbox', 
-               'Get-MailboxFolderPermissionRecursive'
+FunctionsToExport = 'Get-MailboxQuota', 'Convert-QuotaStringToKB', 'Connect-LDAP', 
+               'Get-AutoMapping', 'Get-PostfixSession', 'New-TeamDistributionGroup', 
+               'Sync-GroupPublicFolderPermissions', 'Get-ManagedADObject', 
+               'Invoke-CleanExchangeLogFiles', 'Set-MailboxQuota', 
+               'Show-MailboxFolderPermissionRecursive', 'Get-LdapSearchEntries', 
+               'Enable-MailboxArchive', 'zimStart-Update', 'Invoke-Postmap', 
+               'Reload-OfflineAddressBook', 'Sync-RbacSelfManagementRights', 
+               'New-PostfixEntry', 'Disconnect-Exchange', 
+               'Get-MailboxCalendarPermission', 'Get-MessageTrackingAllLogs', 
+               'Invoke-DelayedAction', 'Get-ADUsers', 
+               'Sync-ExchangeRbacSelfManagement', 'ConvertTo-RegularMailbox', 
+               'Move-ExchangeUser', 'Get-MailboxTopX', 
+               'Copy-DistributionGroupMembersToSendOnBehalf', 'Get-DiskInfo', 
+               'Show-ManagementRoles', 'Add-TeamDistributionGroupPermissions', 
+               'Search-PostfixTable', 'Show-MailboxGreaterThan', 
+               'New-TeamSharedMailbox', 'Send-ExchangePostfixTablesCheck', 
+               'Get-QuestCMGLog', 'Get-MailboxDatabaseSize', 'Search-MailAddress', 
+               'Get-MailboxFolderPermissionRecursive', 'Get-RandomCharacters', 
+               'Get-RandomPassword', 'Add-TeamMailboxPermissions', 
+               'Test-MailFromExternal', 'Get-MailboxGreaterThan', 
+               'Get-QuestCMGProcessedMessages', 'Connect-Exchange', 
+               'Get-ServiceConnectionEndpoint', 'Install-OwaDesign', 
+               'Check-ExchangePostfixTables', 'Get-PostfixTable', 'zimEnd-Update', 
+               'Check-MailAddressExistance'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
 CmdletsToExport = @()

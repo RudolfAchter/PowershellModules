@@ -5,7 +5,8 @@ NAME
     
 ÜBERSICHT
     Verbindet sich mit einem Exchange Server zur Administration.
-    Du musst Exchange Admin bzw Domain Admin sein.
+    Du bekommst nur die Commandlets zur Verfügung auf die du auch
+    berechtigt bist.
     
     
 SYNTAX

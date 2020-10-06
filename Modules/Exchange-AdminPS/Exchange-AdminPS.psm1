@@ -1,20 +1,4 @@
-﻿<#
-$Global:LdapConnection=@{
-    server=$null
-    port=636
-    credential=$null
-    connection=$null
-}
-
-$Global:Postfix=@{
-    Host="tom.rz.uni-passau.de"
-    VirtualTable="/etc/postfix/virtual"
-}
-
-$Global:Exchange=@{
-    DefaultHost="msxpo1.ads.uni-passau.de"
-}
-#>
+﻿
 
 $Global:PowershellConfigDir=($env:USERPROFILE + "\Documents\WindowsPowerShell\Config")
 
@@ -23,7 +7,6 @@ If (-not (Test-Path $Global:PowershellConfigDir)){
 }
 
 #Konfig File schreiben
-
 If(-not (Test-Path ($Global:PowershellConfigDir + "\Exchange-AdminPS.config.ps1"))){
     Set-Content -Path ($Global:PowershellConfigDir + "\Exchange-AdminPS.config.ps1") -Value (@'
 $Global:LdapConnection=@{
@@ -45,6 +28,9 @@ $Global:SSH=@{
     PrivateKeyFile="$env:USERPROFILE\Documents\ssh\openssh.key"
 }
 
+$Global:MyADIdentity=Get-ADUser $env:UserName -Properties EMailAddress
+
+
 $Global:Exchange=@{
     DefaultHost="localhost"
     MailTest=@{
@@ -58,7 +44,10 @@ $Global:Exchange=@{
             UseSsl=$false
         }
     }
-
+    Notification=@{
+        From=$Global:MyADIdentity.EmailAddress
+        SmtpServer="smtpgateway.domain"
+    }
 }
 '@)
 
@@ -228,13 +217,17 @@ $Global:AdAutocompleters = @{
 }
 
 $Global:exchange_current_ad_credential=$null
+$Global:exchange_remoting_session=$null
+$Global:exchange_remoting_modules=$null
+
 
 
 Function Connect-Exchange {
 <#
 .SYNOPSIS
     Verbindet sich mit einem Exchange Server zur Administration.
-    Du musst Exchange Admin bzw Domain Admin sein.
+    Du bekommst nur die Commandlets zur Verfügung auf die du auch
+    berechtigt bist.
 .DESCRIPTION
     Das Commandlet verbindet sich über PS-Remoting mit einem Exchange Server.
     Die notwendigen Module zur Administration werden vom Exchange Server geladen
@@ -260,6 +253,7 @@ Function Connect-Exchange {
     Connect-Exchange -Exchangeserver host.domain.com
     #Verbindet sich mittels Powershell Remoting auf den Exchange CAS host.domain.com
 #>
+    [CmdletBinding()]
     param(
         $ExchangeServer=$Global:Exchange.DefaultHost,
         $Credential=(Get-Credential)
@@ -275,7 +269,17 @@ Function Connect-Exchange {
         }
     }
 
-    $session = new-pssession `
+    #Evtl vorherige offene Exchange Session schließen
+    if($null -ne $Global:exchange_remoting_session){
+        Remove-PSSession -Session $Global:exchange_remoting_session
+    }
+
+    #Evtl vorherige importierte Module entfernen
+    if($null -ne $Global:exchange_remoting_modules){
+        $Global:exchange_remoting_modules | Remove-Module
+    }
+
+    $Global:exchange_remoting_session = new-pssession `
        -ConfigurationName "Microsoft.Exchange" `
        -ConnectionUri ("http://" + $ExchangeServer + "/PowerShell/") `
        -Authentication Kerberos `
@@ -286,21 +290,29 @@ Function Connect-Exchange {
 
 
     # Session einbinden
-    Import-Module(import-pssession -Session $session -AllowClobber) -Global
-    #Import-PSSession $session -DisableNameChecking
-    
-    <#
-
-    $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri http://msxpo1.ads.uni-passau.de/PowerShell/ -Authentication Kerberos -Credential $Credential
-    Import-PSSession $Session -DisableNameChecking
-
-    $session = New-PSSession -ComputerName $ExchangeServer -Credential $Credential
-    Invoke-Command -Session $session {param($ExchangeServer);. 'C:\Program Files\Microsoft\Exchange Server\V15\bin\RemoteExchange.ps1'; Connect-ExchangeServer -ServerFqdn $ExchangeServer } -ArgumentList $ExchangeServer
-    #>
-
+    $Global:exchange_remoting_modules=Import-Module(import-pssession -Session $Global:exchange_remoting_session -AllowClobber) -Global -PassThru
 
 }
 
+Function Disconnect-Exchange {
+<#
+.SYNOPSIS
+    Trennt einen vorher verbundenen Exchange Server wieder
+#>
+    [CmdletBinding()]
+    param()
+
+    #Evtl vorherige offene Exchange Session schließen
+    if($null -ne $Global:exchange_remoting_session){
+        Remove-PSSession -Session $Global:exchange_remoting_session
+    }
+
+    #Evtl vorherige importierte Module entfernen
+    if($null -ne $Global:exchange_remoting_modules){
+        $Global:exchange_remoting_modules | Remove-Module
+    }
+
+}
 
 #ExchangeArgumentCompleters für Exchange-AdminPS.psm1
 Set-Variable -Name "ExchangeArgumentCompleters" -Scope global `
@@ -325,7 +337,6 @@ Set-Variable -Name "ExchangeArgumentCompleters" -Scope global `
 
 
 
-#("melanie.kreipl","sabrina.maier","nergis.bayrak").GetType()
 
 Function Get-ADUsers {
     param(
@@ -741,7 +752,25 @@ Function Search-PostfixTable {
 
 
 Function Check-ExchangePostfixTables {
+<#
+.SYNOPSIS
+    Führt einen Plausibilitäts Check zwischen Exchange / ActiveDirectory
+    Email Adressen und unseren Postfix Tabellen durch
+.DESCRIPTION
+    Alle uni-passau.de E-Mail Adressen "(smtp|SMTP:)[^@]+@uni-passau\.de"
+    werden daraufhin überprüftr, dass in der Postfix virtual Tabelle
+    ein entsprechender Verweis auf die @ads.uni-passau.de Adresse vorhanden ist
 
+    Alle primären E-Mail Adressen (Antwort Adressen)
+    (SMTP:)[^@]+@(ads|gw|pers|stud)\.uni-passau\.de
+    werden auf einen evtl notwendigen Eintrag in der sender_canonical überprüft,
+    damit die Adresse in die Entsprechende DutyEmail @uni-passau.de umgeschrieben wird
+    Alle DutyEmail Adressen sollten über kurz oder lang sowieso auf Primary umgestellt werden
+    notwendig wegen E-Mail Signatur
+.PARAMETER Detailed
+    (Optional) Überprüft die Postfix Einträge genauer. Bei z.B. Team Email Adresse sind Einträge zwar vorhanden
+    zeigen aber nicht immer auf das korrekte AD-Objekt. Das wird hier zusätzlich überprüft
+#>
     [CmdletBinding()]
     param(
         [switch]$Detailed
@@ -886,6 +915,32 @@ Function Check-ExchangePostfixTables {
 
         $i++
     }
+
+}
+
+Function Send-ExchangePostfixTablesCheck {
+<#
+.SYNOPSIS
+    Versendet die Ergebnisse von Check-ExchangePostfixTables per Mail
+.PARAMETER To
+    Mail Empfänger
+.PARAMETER From
+    (Optional) Absender. Standardmäßig der User der dieses Cmdlet ausführt
+.PARAMETER SmtpServer
+    (Optional) Über welchen SmtpServer wird versendet
+#>
+    param(
+        $To,
+        $From=$Global:Exchange.Notification.From,
+        $SmtpServer=$Global:Exchange.Notification.SmtpServer
+    )
+
+    $check_result=Check-ExchangePostfixTables
+    #$check_result=Get-Item * | Select Name,FullName
+
+    $html=$check_result | ConvertTo-StyledHTML
+
+    Send-MailMessage -From $From -To $To -Subject "Exchange und Postfix Tables Check (virtual und sender_canonical)" -BodyAsHtml $html -SmtpServer $SmtpServer
 
 }
 
@@ -1240,11 +1295,17 @@ function Get-DiskInfo{
     Write-Verbose "Getting drive types of $DriveType from $ComputerName"        Get-WmiObject -Class Win32_LogicalDisk -Filter "DriveType=$DriveType" -ComputerName $ComputerName |        Select-Object -Property @{n='DriveLetter';e={$PSItem.DeviceID}},                            @{n='FreeSpace(MB)';e={"{0:N2}" -f ($PSItem.FreeSpace / 1MB)}},                            @{n='Size(GB)';e={"{0:N2}" -f ($PSItem.Size / 1GB)}},                            @{n='FreePercent';e={"{0:N2}%" -f ($PSItem.FreeSpace / $PSItem.Size * 100)}}}function Get-MailboxTopX{        Param (
         [string]$Database,
         [int]$Top=10
-        )        if($Database){            get-mailbox -Database $Database -ResultSize Unlimited|                Get-MailboxQuota |                 Sort-Object -Descending -Property totalItemSizeKB |                 Select-Object -First $Top            }         else{            get-mailbox -ResultSize Unlimited|                Get-MailboxQuota |                 Sort-Object -Descending -Property totalItemSizeKB |                 Select-Object -First $Top            }}function Get-MailboxDatabaseSize{        Param (
+        )        if($Database){            get-mailbox -Database $Database -ResultSize Unlimited|                Get-MailboxQuota |                 Sort-Object -Descending -Property totalItemSizeKB |                 Select-Object -First $Top            }         else{            get-mailbox -ResultSize Unlimited|                Get-MailboxQuota |                 Sort-Object -Descending -Property totalItemSizeKB |                 Select-Object -First $Top            }}function Get-MailboxGreaterThan{        Param (
+        $Database,
+        [bigint]$Bytes
+        )        if($Database){            get-mailbox -Database $Database -ResultSize Unlimited|                Get-MailboxQuota |                 Where-Object{$_.totalItemSizeKB -gt ($Bytes / 1KB)}            }         else{            get-mailbox -ResultSize Unlimited|                Get-MailboxQuota |                 Where-Object{$_.totalItemSizeKB -gt ($Bytes / 1KB)}            }}function Show-MailboxGreaterThan{        Param (
+        $Database,
+        [bigint]$Bytes
+        )        Get-MailboxGreaterThan -Database $Database -Bytes $Bytes |             Select Name,DisplayName,prohibitSendReceiveQuotaKB,totalItemSizeKB}function Get-MailboxDatabaseSize{        Param (
         [string]$Database
         )        if($Database){            Get-MailboxDatabase -Identity $Database -Status| select ServerName,Name,DatabaseSize            }         else{            Get-MailboxDatabase -Status| select ServerName,Name,DatabaseSize            }}function New-TeamDistributionGroup{<#.SYNOPSIS    Erstellt Distributiongroups. Notwendige "virtual" Einträge am Postfix Server werden automatisch ergänzt.DESCRIPTION    Erstellt Distributiongroups anhand der angegebenen Parameter. Es wird überprüft ob die E-Mail-Addresse bereits existiert    und gegebenenfalls abgebrochen. @uni-passau.de E-Mail-Addresse wird am Postfix Server (tom) ergänzt und ein Postmap    durchgeführt.PARAMETER NameSpezifiziert den System- bzw. DisplayName..PARAMETER AliasSpezifiziert den Aliasnamen. Am besten wird Gruppenname gefolt von Unterstrich und Präfix Emailadresse verwendet (z.B.: S001_Sekretariat).PARAMETER OwnerSpezifiziert den Besitzer der DistributionGroup. Hier wird der Einrichtungsleiter eingetragen..PARAMETER MembersSpezifiziert die Mitglieder der DistributionGroup. In unserem Fall wird hier nur die SharedMailbox eingetragen (z.B.: S001_Team).PARAMETER SendOnBehalfUsersSpezifiziert die Benutzer welche im Namen der DistributionGroup senden dürfen. Angabe der Benutzer mit kurzem Benutzernamen und via Komma getrennt.PARAMETER EmailAddressesSpezifiziert die EmailAdresse der DistributionGroup. Angabe von mehreren Emails durch Komma getrennt möglich. Die als erstes genannte EmailAdresse wird die Hauptadresse. Die Standard ADS-Adresse (z.B.: Sekretaria@ads.uni-passau.de) wird automatisch erzeugt. .PARAMETER Path    //XXX noch nicht implementiert.PARAMETER NoPostfixEntry    Wenn true wird der Eintrag nicht am Postfix ergänzt.PARAMETR NotAddressAutoCreate    Wenn true werden die Adressen Name@uni-passau.de und Name@ads.uni-passau.de nicht automatisch erstellt.    In dem Fall werden nur die Adressen erstellt die expizit über EmailAddresses angegeben wurden.EXAMPLEzimNew-DistributionGroup -Name ZIM-Sekretariat -Alias S001_Sekretariat -Owner User1 -Members S001_Team -SendOnBehalfUsers User2,User3 -EmailAddresses Zim-Sekretariat@uni-passau.de,ExampleTest@uni-passau.de.EXAMPLEzimNew-DistributionGroup -Path DistributionGroups.csv#>    Param(    [Parameter(Mandatory=$true)][String]$RequestID,    [ValidateSet("kix")]$RequestFrom="kix",    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String]$Name,    [Parameter(Mandatory=$false,ParameterSetName='Normal')]$Alias,    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String[]]$Owner,    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String[]]$Members,    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String[]]$SendOnBehalfUsers,    [Parameter(Mandatory=$false,ParameterSetName='Normal')][String[]]$EmailAddresses,    [Parameter(Mandatory=$false,ParameterSetName='Path')][String]$Path,    [Alias("TemporaryUntil")]    $UsedUntil=$null,    [Switch]$NoPostfixEntry,    [Switch]$NoAddressAutoCreate    )            If($Alias -eq $null){        $Alias=$Name    }    if($NoAddressAutoCreate){        $DisplayName=$EmailAddresses[0]    }    else{        $DisplayName=($Name + "@uni-passau.de")    }    if ($Name){        $EmailAddress=@()        #@ads.uni-passau.de-EmailAdresse dem Array hinzufügen (neues erstellen)        #= $EmailAddresses += $Name + "@ads.uni-passau.de"        if(-not $NoAddressAutoCreate){            $EmailAddress+=("SMTP:" + $Name + "@uni-passau.de")            $EmailAddress+=("smtp:" + $Name + "@ads.uni-passau.de")        }        else{            $EmailAddress+=("smtp:" + $Name + "@ads.uni-passau.de")        }        #Zusätzliche Email Adressen        $i=0        ForEach($addr in $EmailAddresses){            #Wenn wir keine @uni-passau.de automatisch erstellen            #Dann wird die erste manuell angegebene Adresse primär            if($i -eq 0 -and $NoAddressAutoCreate){                $EmailAddress+=("SMTP:" + $addr)            }            else{                $EmailAddress+=("smtp:" + $addr)            }            $i++        }        $a_search_addresses=($EmailAddress -match "smtp:.*" -replace "^smtp:","")        #Postfix Check        $do_postfix_entry=$true        ForEach($search_address in $a_search_addresses){            $postfix_result=Search-PostfixTable -PostfixTable Virtual -Search $search_address            ForEach($item in $postfix_result){                Write-Warning("Postfix Eintrag in virtual existiert bereits: " + $item.VirtualAddress + "`t" + ($item.Recipients -join ","))                $do_postfix_entry=$false            }        }        #Exchange Check        $do_create=$true        ForEach($search_address in $a_search_addresses){            if(Check-MailAddressExistance -MailAddress $search_address){                Write-Error($search_address + " existiert bereits in Exchange. Distribution Group wird nicht angelegt")                $do_create=$false            }        }        #Wenn die Checks erfolgreich sind, dann DistributionGroup anlegen        if($do_create){            #//XXX hier weiter            #Zusätzliche Info als XML            [System.XML.XMLDocument]$o_xml=New-Object System.XML.XMLDocument            $root_node=$o_xml.CreateElement("data")                        $node=$o_xml.CreateElement("requestFrom")            $node.InnerText=$RequestFrom            $root_node.AppendChild($node)            $node=$o_xml.CreateElement("requestID")            $node.InnerText=$RequestID            $root_node.AppendChild($node)                        if($null -ne $UsedUntil){                $node=$o_xml.CreateElement("usedUntil")                $node.InnerText=(Get-Date $UsedUntil -Format "yyyy-MM-dd hh:mm")                $root_node.AppendChild($node)            }            $o_xml.appendChild($root_node)            #Anlegen einer einzelnen DistributionGroup            new-DistributionGroup -name $Name -DisplayName $DisplayName -alias $Alias -managedby $Owner -members $Members -OrganizationalUnit "ads.uni-passau.de/exchange" `                -MemberJoinRestriction Closed -MemberDepartRestriction Closed -RequireSenderAuthenticationEnabled $false -Type Distribution            $o_distributionGroup=Get-DistributionGroup -Identity $Name            $o_distributionGroup | Set-DistributionGroup -EmailAddressPolicyEnabled $false -GrantSendOnBehalfTo $SendOnBehalfUsers -EmailAddresses $EmailAddress                        #Die Distribution Group wurde verändert. Aktuelle Version holen            $o_distributionGroup=Get-DistributionGroup -Identity $Name            Write-Host("Waiting for AD....")            Write-Progress -Activity "Waiting for AD" -SecondsRemaining 15            Start-Sleep -Seconds 15            #Ich speichere die XML Zusatzinformationen in extensionAttribute8                    Get-ADGroup -Identity $o_distributionGroup.DistinguishedName | Set-ADGroup -Replace @{extensionAttribute8=$o_xml.InnerXml} -Credential $Global:exchange_current_ad_credential                        if($do_postfix_entry -and (-not $NoPostfixEntry)){                #Dann können wir uns hier auch noch um den Postfix kümmern                $postfix_session=Get-PostfixSession                New-PostfixEntry -Session $postfix_session -PostfixTable Virtual -Entry ($o_distributionGroup.PrimarySmtpAddress + "`t" + $Name + "@ads.uni-passau.de")                Invoke-Postmap -Session $postfix_session -PostfixTable Virtual                $postfix_session.Disconnect()                Remove-SSHSession -SSHSession $postfix_session            }            #Testmail senden            $guid=(New-Guid).Guid            $datestr=Get-Date -Format "yyyy-MM-dd hh:mm:ss"            $subj="Testmail an " + $o_distributionGroup.PrimarySmtpAddress + " ID: " + $guid + " DateTime: " + $datestr            $body="Diese Testmail wurde automatisch generiert"                        Write-Host($subj)            Invoke-DelayedAction -Seconds $Global:Exchange.MailTest.FromExternal.TestDelaySeconds `                -ScriptBlock ("Test-MailFromExternal -Subject '$subj'-Body '$body' -To '" + $o_distributionGroup.PrimarySmtpAddress + "'") `                -JobName "TestMail New-TeamDistributionGroup $guid"        }    } }Function Test-MailFromExternal {<#.SYNOPSIS    Erstellt eine Testmail von einem externen Konto.EXAMPLE    #Mail versenden    Test-MailFromExternal -Subject "Test an sekretariat.hartwig@uni-passau.de" -Body "Test an sekretariat.hartwig@uni-passau.de" -To "sekretariat.hartwig@uni-passau.de"
 Sending Mail From rudolf.achter.unipassau.exttest@gmx.de To sekretariat.hartwig@uni-passau.de via mail.gmx.net    #Überprüfen ob die Mail richtig angekommen ist    Get-MessageTrackingAllLogs -Start 10:30 -MessageSubject "Test an sekretariat.hartwig@uni-passau.de"#>    param(        [string]$Subject,        [string]$Body,        [string]$SmtpServer   = $Global:Exchange.MailTest.FromExternal.SmtpServer,        [string]$Port         = $Global:Exchange.MailTest.FromExternal.Port,        [string]$User         = $Global:Exchange.MailTest.FromExternal.User,        [string]$Password     = $Global:Exchange.MailTest.FromExternal.Password,        [string]$From         = $Global:Exchange.MailTest.FromExternal.From,        [string[]]$To         = $Global:Exchange.MailTest.FromExternal.To,        [switch]$UseSsl       = $Global:Exchange.MailTest.FromExternal.UseSsl    )    <#    $h_mail_params=@{        Credential    }    #>    $Credential=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $User,($Password | ConvertTo-SecureString -AsPlainText -Force)    Write-Host ("Sending Mail From $From To $To via $SmtpServer")    Send-MailMessage -SmtpServer $SmtpServer `        -Port $Port `        -Credential $Credential `        -From $From `        -To $To `        -Subject $Subject `        -Body $Body `        -UseSsl:$UseSsl}<#.SYNOPSIS    Führt eine Aktion verzögert aus. Brauch ich z.B. für Testmails#>Function Invoke-DelayedAction{    Param(        [int]$Seconds,        $ScriptBlock,        $JobName="DelayedAction"    )    $Script=[ScriptBlock]::Create("Start-Sleep -Seconds $Seconds`r`n" + $ScriptBlock.ToString())    Start-Job -ScriptBlock $Script -Name $JobName     Write-Host("Created Delayed Job $JobName. Dont Close this shell for $Seconds seconds" )}Function Search-MailAddress{    [CmdletBinding()]    param(        $MailAddress    )    $result=Get-Recipient -Filter "EMailAddresses -eq '$MailAddress'"    $result}Function Check-MailAddressExistance {    [CmdletBinding()]    param(        $MailAddress    )    Write-Host "Prüfe Active Directory auf existenz der Mail Adresse $MailAddress"    $result=Search-MailAddress -MailAddress $MailAddress    if($result -ne $null){        Write-Host ("Adresse $MailAddress existiert bereits in AD-Objekt: " + $result.DistinguishedName)        $true    }    else{        $false    }}
-function New-TeamSharedMailbox{<#.SYNOPSISErstellt SharedMailbox..DESCRIPTIONErstellt SharedMailboxes anhand der angegebenen Parameter..PARAMETER RequestID    Ticket in dem die Mailbox angefordert wird.PARAMETER RequestFrom    System in dem die Anforderung gestellt worden ist (sollte das mal was anderes als "kix" sein).PARAMETER Team    Team (z.B. S001) für das die Mailbox erstellt wird.PARAMETER Name    Spezifiziert den Namen, Displaynamen sowie das Alias der SharedMailbox..PARAMETER Owners    Besitzer der Mailbox.PARAMETER Members    Mitglieder. Diese können als "Publishing Editor" zugreifen.PARAMETER EmailAddresses    EmailAdressen die auf diese Mailbox verweisen. Für jede Email Adresse wird eine Distribution Group mit dem Namen der Email Adresse erstellt    um die Email Adresse auch als Versand Adresse verwenden zu können.PARAMETER NoQuota    Würde die Quota Richtlinie auslassen Standard (Warning: 9,5GB; Send: 9,9GB; SendReceive: 10GB).EXAMPLENew-TeamSharedMailbox -RequestID "10163644" -RequestFrom kix -Team J009 -Name J009_support.fet.jura -Owners "nauman11","kramer16" -Members "gashi03","nauman11" -SendAsUsers "gashi03","nauman11" -EmailAddresses support.fet.jura@uni-passau.de -InformUsersErstellt eine neue SharedMailbox bei der die Owners FullAccess haben die Members PublishinEditor sind, und die SendASUsers SendAS Berechtigungen habenInformUsers sagt aus, dass die User über ihre neue Mailbox benachrichtigt werden sollen. Das erstellt eine neue Mail in Outlook die in einem neuen Fenster geöffnet wird und editiert werden kann bevor diese versendet wird#>    Param(    [Parameter(Mandatory=$true)][String]$RequestID,    [ValidateSet("kix")]$RequestFrom="kix",    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String]$Team,    [Parameter(Mandatory=$false,ParameterSetName='Normal')][String]$Name='',    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String[]]$Owners,    [String[]]$Members,    [String[]]$SendAsUsers,    [Parameter(ParameterSetName='Normal')][String[]]$EmailAddresses,    [Parameter(ParameterSetName='Normal')][Switch]$NoQuota,    [Alias("TemporaryUntil")]    $UsedUntil=$null,    [Switch]$InformUsers,    [Switch]$NoPostfixEntry    )    if($Name -eq ''){        $Name=$Team + '_Team'    }    #Mailbox erstellen    write-host "Neues Team mit dem Namen $Name anlegen..." -ForegroundColor Yellow    New-Mailbox -Name $Name -OrganizationalUnit ads.uni-passau.de/exchange -Shared|Out-Null    $o_mailbox=Get-Mailbox $Name        if($null -ne $o_mailbox){        #Wenn ich eine Mailbox erfolgreich erstellt habe        #Postfix Check        $do_postfix_entry=$true        $search_address=$o_mailbox.PrimarySmtpAddress        $postfix_result=Search-PostfixTable -PostfixTable Virtual -Search $search_address        ForEach($item in $postfix_result){            Write-Warning("Postfix Eintrag in virtual existiert bereits: " + $item.VirtualAddress + "`t" + ($item.Recipients -join ","))            $do_postfix_entry=$false        }        #Postfix Eintrag erstellen wenn noch nicht vorhanden        if($do_postfix_entry -and (-not $NoPostfixEntry)){            #Dann können wir uns hier auch noch um den Postfix kümmern            $postfix_session=Get-PostfixSession            New-PostfixEntry -Session $postfix_session -PostfixTable Virtual -Entry ($o_mailbox.PrimarySmtpAddress + "`t" + $Name + "@ads.uni-passau.de")            Invoke-Postmap -Session $postfix_session -PostfixTable Virtual            $postfix_session.Disconnect()            Remove-SSHSession -SSHSession $postfix_session        }        #Testmail senden        $guid=(New-Guid).Guid        $datestr=Get-Date -Format "yyyy-MM-dd hh:mm:ss"        $subj="Testmail an " + $o_mailbox.PrimarySmtpAddress + " ID: " + $guid + " DateTime: " + $datestr        $body="Diese Testmail wurde automatisch generiert"                    Write-Host($subj)        Invoke-DelayedAction -Seconds $Global:Exchange.MailTest.FromExternal.TestDelaySeconds `            -ScriptBlock ("Test-MailFromExternal -Subject '$subj'-Body '$body' -To '" + $o_mailbox.PrimarySmtpAddress + "'") `            -JobName "TestMail New-TeamSharedMailbox $guid"                foreach ($Owner in $Owners){            #Berechtigungen eintragen            #FullAccess            write-host "Owner Berechtigungen für $Owner setzen..."            Add-MailboxPermission $Name -User $Owner -AccessRights FullAccess –AutoMapping $False|out-null            #SendAs            Add-ADPermission $Name -User $Owner -ExtendedRights "Send As"|out-null        }        #Braucht AD Zeit zum synchronisieren?        Write-Host("Waiting for AD....")        Write-Progress -Activity "Waiting for AD" -SecondsRemaining 15        Start-Sleep -Seconds 15        foreach ($Member in $Members){            #Berechtigungen eintragen            write-host "Member Berechtigungen für $Member setzen..."            Add-MailboxFolderPermission -Identity ($Name + ":\") -User $Member -AccessRights PublishingEditor | out-null        }        if($null -eq $SendAsUsers){            $SendAsUsers=@()            $SendAsUsers+=$Owners        }        #Zusatz Infos setzen        #Zusätzliche Info als XML        [System.XML.XMLDocument]$o_xml=New-Object System.XML.XMLDocument        $root_node=$o_xml.CreateElement("data")                    $node=$o_xml.CreateElement("requestFrom")        $node.InnerText=$RequestFrom        $root_node.AppendChild($node)        $node=$o_xml.CreateElement("requestID")        $node.InnerText=$RequestID        $root_node.AppendChild($node)                    if($null -ne $UsedUntil){            $node=$o_xml.CreateElement("usedUntil")            $node.InnerText=(Get-Date $UsedUntil -Format "yyyy-MM-dd hh:mm")            $root_node.AppendChild($node)        }        $o_xml.appendChild($root_node)        Get-ADUser -Filter ('Name -eq "' + $Name + '"') | %{Set-ADUser -Identity $_.DistinguishedName -Replace @{extensionAttribute8=$o_xml.InnerXml} -Credential $Global:exchange_current_ad_credential}        <#        foreach ($SendAsUser in $SendAsUsers){            #Berechtigungen eintragen            write-host "SendAs Berechtigungen für $SendAsUser setzen..."            Add-ADPermission $Name -User $SendAsUser -ExtendedRights "Send As"|out-null        }        #>        #Quota setzen wenn angegeben        if ($NoQuota -ne $true){            write-host "Quota für $Name setzen..." -ForegroundColor Yellow            set-mailbox $Name -UseDatabaseQuotaDefaults $false -IssueWarningQuota ([math]::Floor(9.5 * 1024 * 1024 * 1024)) -ProhibitSendQuota ([math]::Floor(9.9 * 1024 * 1024 * 1024)) -ProhibitSendReceiveQuota ([math]::Floor(10 * 1024 * 1024 * 1024))        }        #Sammeln Welche Email Addressen wir generiert haben        $a_addresses_info=@()        #$a_addresses_info+=(Get-Mailbox $Name).PrimarySmtpAddress        #Weitere Email-Adressen eintragen wenn angegeben        if ($EmailAddresses){            #write-host "Weitere Email-Adressen hinzufügen..." -ForegroundColor Yellow            #Set-Mailbox $name -EmailAddresses $EmailAddresses|out-null            ForEach($address in $EmailAddresses){                $group_name=($address -split "@")[0]                New-TeamDistributionGroup -RequestID $RequestID -RequestFrom $RequestFrom -Name $group_name -Owner $Owners -Members $Name -SendOnBehalfUsers $SendAsUsers -EmailAddresses $address -NoPostfixEntry:$NoPostfixEntry -NoAddressAutoCreate                $a_addresses_info+=(Get-DistributionGroup -Identity $group_name).PrimarySmtpAddress            }        }        $a_user_inform_collection=@()        $a_user_inform_collection+=$Owners + $Members + $SendAsUsers        if($InformUsers){            #User über die neue Mailbox informieren            $ADUsers=$a_user_inform_collection | %{Get-ADUser $_ -Properties EmailAddress}            $out='Sehr geehrte Damen und Herren,' + "<br/>`r`n"            $out+='für Ihr Team wurde eine neue Mailbox angelegt' + "<br/>`r`n"            $out+='<strong>Team:</strong> ' + $Team + "<br/>`r`n"            $out+='<strong>MailboxName:</strong> ' + $Name + "<br/>`r`n"            $out+='<strong>EMail-Adressen:</strong> ' + $a_addresses_info -join ", " + "<br/>`r`n"            $out+= "<br/>`r`n"            $out+= 'Wie die Team-Mailbox zu verwenden ist, entnehmen Sie bitte unseren Hilfeseiten:' + "<br/>`r`n"            $out+= '<ul>'+"`r`n"            $out+= '<li>'+ '<a href="https://www.hilfe.uni-passau.de/arbeitsplaetze/e-mail/outlook/tipps-fuer-beschaeftigte/arbeiten-mit-einer-team-mailbox/">Arbeiten mit einer Team Mailbox</a>' +"</li>`r`n"            $out+= '<li>'+ '<a href="https://www.hilfe.uni-passau.de/arbeitsplaetze/e-mail/outlook/tipps-fuer-beschaeftigte/">Outlook Tipps für Beschäftigte</a>' +"</li>`r`n"            $out+= '</ul>'+ "`r`n"            $out+= "<br/>`r`n"            $out+= 'Freundliche Grüße' + "<br/>`r`n"            $out+= 'Ihr ZIM-Support' + "<br/>`r`n"            New-OutlookMail -Recipients $ADUsers.EmailAddress -Subject "Für Ihr Team $Team wurde eine neue Mailbox $Name angelegt" -HTMLBody $out        }    }}function zimStart-Update{<#.SYNOPSISStellt den Server in den Wartungsmodus..DESCRIPTIONStellt den Server in den Wartungsmodus, z. B. für Updates, wobei per Parameter geregelt werden kann, auf welchen Server die Queue umverteilt werden soll..PARAMETER TargetDer Zielserver für die Mail-Queue (Standard: MSXRESTORE bzw. MSXPO1 auf MSXRESTORE)#>    Param(    [String]$Target = "msxrestore.ads.uni-passau.de"    )    Set-ServerComponentState $env:COMPUTERNAME -Component HubTransport -State Draining -Requester Maintenance    Redirect-Message -Server $env:COMPUTERNAME -Target $Target -Confirm:$false    Set-ServerComponentState $env:COMPUTERNAME -Component ServerWideOffline -State Inactive -Requester Maintenance}function zimEnd-Update{<#.SYNOPSISStellt den Server vom Wartungsmodus zurück in den Online-Modus..DESCRIPTIONStellt den Server vom Wartungsmodus zurück in den Online-Modus.#>    Set-ServerComponentState $env:COMPUTERNAME -Component ServerWideOffline -State Active -Requester Maintenance    Set-ServerComponentState $env:COMPUTERNAME -Component HubTransport -State Active -Requester Maintenance}function Reload-OfflineAddressBook {    Get-OfflineAddressBook | Update-OfflineAddressBook    Get-OfflineAddressBook}<#.EXAMPLEGet-Mailbox V012_Team | Get-MailboxCalendarPermissionAdd-MailboxFolderPermission -Identity V012_Team@ads.uni-passau.de:\Kalender -User achter@ads.uni-passau.de -AccessRights Editor#>function Get-MailboxCalendarPermission {    [cmdletBinding()]    param(    [Parameter(Mandatory=$True,ValueFromPipeline=$True)]    $Mailbox    )    $mb_address=(Get-Mailbox $Mailbox).PrimarySMTPAddress.Address    Get-MailboxFolderPermission -Identity ($mb_address +":\Kalender")}
+function New-TeamSharedMailbox{<#.SYNOPSISErstellt SharedMailbox..DESCRIPTIONErstellt SharedMailboxes anhand der angegebenen Parameter..PARAMETER RequestID    Ticket in dem die Mailbox angefordert wird.PARAMETER RequestFrom    System in dem die Anforderung gestellt worden ist (sollte das mal was anderes als "kix" sein).PARAMETER Team    Team (z.B. S001) für das die Mailbox erstellt wird.PARAMETER Name    Spezifiziert den Namen, Displaynamen sowie das Alias der SharedMailbox..PARAMETER Owners    Besitzer der Mailbox.PARAMETER Members    Mitglieder. Diese können als "Publishing Editor" zugreifen.PARAMETER EmailAddresses    EmailAdressen die auf diese Mailbox verweisen. Für jede Email Adresse wird eine Distribution Group mit dem Namen der Email Adresse erstellt    um die Email Adresse auch als Versand Adresse verwenden zu können.PARAMETER NoQuota    Würde die Quota Richtlinie auslassen Standard (Warning: 9,5GB; Send: 9,9GB; SendReceive: 10GB).EXAMPLENew-TeamSharedMailbox -RequestID "10163644" -RequestFrom kix -Team J009 -Name J009_support.fet.jura -Owners "nauman11","kramer16" -Members "gashi03","nauman11" -SendAsUsers "gashi03","nauman11" -EmailAddresses support.fet.jura@uni-passau.de -InformUsersErstellt eine neue SharedMailbox bei der die Owners FullAccess haben die Members PublishinEditor sind, und die SendASUsers SendAS Berechtigungen habenInformUsers sagt aus, dass die User über ihre neue Mailbox benachrichtigt werden sollen. Das erstellt eine neue Mail in Outlook die in einem neuen Fenster geöffnet wird und editiert werden kann bevor diese versendet wird#>    Param(    [Parameter(Mandatory=$true)][String]$RequestID,    [ValidateSet("kix")]$RequestFrom="kix",    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String]$Team,    [Parameter(Mandatory=$false,ParameterSetName='Normal')][String]$Name='',    [Parameter(Mandatory=$true,ParameterSetName='Normal')][String[]]$Owners,    [String[]]$Members,    [String[]]$SendAsUsers,    [Parameter(ParameterSetName='Normal')][String[]]$EmailAddresses,    [Parameter(ParameterSetName='Normal')][Switch]$NoQuota,    [Alias("TemporaryUntil")]    $UsedUntil=$null,    [Switch]$InformUsers,    [Switch]$NoPostfixEntry    )    if($Name -eq ''){        $Name=$Team + '_Team'    }    #Mailbox erstellen    write-host "Neues Team mit dem Namen $Name anlegen..." -ForegroundColor Yellow    New-Mailbox -Name $Name -OrganizationalUnit ads.uni-passau.de/exchange -Shared|Out-Null    $o_mailbox=Get-Mailbox $Name        if($null -ne $o_mailbox){        #Wenn ich eine Mailbox erfolgreich erstellt habe        #Postfix Check        $do_postfix_entry=$true        $search_address=$o_mailbox.PrimarySmtpAddress        $postfix_result=Search-PostfixTable -PostfixTable Virtual -Search $search_address        ForEach($item in $postfix_result){            Write-Warning("Postfix Eintrag in virtual existiert bereits: " + $item.VirtualAddress + "`t" + ($item.Recipients -join ","))            $do_postfix_entry=$false        }        #Postfix Eintrag erstellen wenn noch nicht vorhanden        if($do_postfix_entry -and (-not $NoPostfixEntry)){            #Dann können wir uns hier auch noch um den Postfix kümmern            $postfix_session=Get-PostfixSession            New-PostfixEntry -Session $postfix_session -PostfixTable Virtual -Entry ($o_mailbox.PrimarySmtpAddress + "`t" + $Name + "@ads.uni-passau.de")            Invoke-Postmap -Session $postfix_session -PostfixTable Virtual            $postfix_session.Disconnect()            Remove-SSHSession -SSHSession $postfix_session        }        #Testmail senden        $guid=(New-Guid).Guid        $datestr=Get-Date -Format "yyyy-MM-dd hh:mm:ss"        $subj="Testmail an " + $o_mailbox.PrimarySmtpAddress + " ID: " + $guid + " DateTime: " + $datestr        $body="Diese Testmail wurde automatisch generiert"                    Write-Host($subj)        Invoke-DelayedAction -Seconds $Global:Exchange.MailTest.FromExternal.TestDelaySeconds `            -ScriptBlock ("Test-MailFromExternal -Subject '$subj'-Body '$body' -To '" + $o_mailbox.PrimarySmtpAddress + "'") `            -JobName "TestMail New-TeamSharedMailbox $guid"                foreach ($Owner in $Owners){            #Berechtigungen eintragen            #FullAccess            write-host "Owner Berechtigungen für $Owner setzen..."            Add-MailboxPermission $Name -User $Owner -AccessRights FullAccess –AutoMapping $False|out-null            #SendAs            Add-ADPermission $Name -User $Owner -ExtendedRights "Send As"|out-null        }        #Braucht AD Zeit zum synchronisieren?        Write-Host("Waiting for AD....")        Write-Progress -Activity "Waiting for AD" -SecondsRemaining 15        Start-Sleep -Seconds 15        foreach ($Member in $Members){            #Berechtigungen eintragen            write-host "Member Berechtigungen für $Member setzen..."            Add-MailboxFolderPermission -Identity ($Name + ":\") -User $Member -AccessRights PublishingEditor | out-null        }        if($null -eq $SendAsUsers){            $SendAsUsers=@()            $SendAsUsers+=$Owners        }        #Neue Mailbox zum Team hinzufügen        $mb_ad_user=Get-ADUser -Filter "cn -eq '$Name'"        Get-ADGroup($Team + "_Mailboxes.UG") | Add-ADGroupMember -Members $mb_ad_user -Credential $global:exchange_current_ad_credential        #Zusatz Infos setzen        #Zusätzliche Info als XML        [System.XML.XMLDocument]$o_xml=New-Object System.XML.XMLDocument        $root_node=$o_xml.CreateElement("data")                    $node=$o_xml.CreateElement("requestFrom")        $node.InnerText=$RequestFrom        $root_node.AppendChild($node)        $node=$o_xml.CreateElement("requestID")        $node.InnerText=$RequestID        $root_node.AppendChild($node)                    if($null -ne $UsedUntil){            $node=$o_xml.CreateElement("usedUntil")            $node.InnerText=(Get-Date $UsedUntil -Format "yyyy-MM-dd hh:mm")            $root_node.AppendChild($node)        }        $o_xml.appendChild($root_node)        Get-ADUser -Filter ('Name -eq "' + $Name + '"') | %{Set-ADUser -Identity $_.DistinguishedName -Replace @{extensionAttribute8=$o_xml.InnerXml} -Credential $Global:exchange_current_ad_credential}        <#        foreach ($SendAsUser in $SendAsUsers){            #Berechtigungen eintragen            write-host "SendAs Berechtigungen für $SendAsUser setzen..."            Add-ADPermission $Name -User $SendAsUser -ExtendedRights "Send As"|out-null        }        #>        #Quota setzen wenn angegeben        if ($NoQuota -ne $true){            write-host "Quota für $Name setzen..." -ForegroundColor Yellow            set-mailbox $Name -UseDatabaseQuotaDefaults $false -IssueWarningQuota ([math]::Floor(9.5 * 1024 * 1024 * 1024)) -ProhibitSendQuota ([math]::Floor(9.9 * 1024 * 1024 * 1024)) -ProhibitSendReceiveQuota ([math]::Floor(10 * 1024 * 1024 * 1024))        }        #Sammeln Welche Email Addressen wir generiert haben        $a_addresses_info=@()        #$a_addresses_info+=(Get-Mailbox $Name).PrimarySmtpAddress        #Weitere Email-Adressen eintragen wenn angegeben        if ($EmailAddresses){            #write-host "Weitere Email-Adressen hinzufügen..." -ForegroundColor Yellow            #Set-Mailbox $name -EmailAddresses $EmailAddresses|out-null            ForEach($address in $EmailAddresses){                $group_name=($address -split "@")[0]                New-TeamDistributionGroup -RequestID $RequestID -RequestFrom $RequestFrom -Name $group_name -Owner $Owners -Members $Name -SendOnBehalfUsers $SendAsUsers -EmailAddresses $address -NoPostfixEntry:$NoPostfixEntry -NoAddressAutoCreate                $a_addresses_info+=(Get-DistributionGroup -Identity $group_name).PrimarySmtpAddress            }        }        $a_user_inform_collection=@()        $a_user_inform_collection+=$Owners + $Members + $SendAsUsers        if($InformUsers){            #User über die neue Mailbox informieren            $ADUsers=$a_user_inform_collection | %{Get-ADUser $_ -Properties EmailAddress}            $out='Sehr geehrte Damen und Herren,' + "<br/>`r`n"            $out+='für Ihr Team wurde eine neue Mailbox angelegt' + "<br/>`r`n"            $out+='<strong>Team:</strong> ' + $Team + "<br/>`r`n"            $out+='<strong>MailboxName:</strong> ' + $Name + "<br/>`r`n"            $out+='<strong>EMail-Adressen:</strong> ' + $a_addresses_info -join ", " + "<br/>`r`n"            $out+= "<br/>`r`n"            $out+= 'Wie die Team-Mailbox zu verwenden ist, entnehmen Sie bitte unseren Hilfeseiten:' + "<br/>`r`n"            $out+= '<ul>'+"`r`n"            $out+= '<li>'+ '<a href="https://www.hilfe.uni-passau.de/arbeitsplaetze/e-mail/outlook/tipps-fuer-beschaeftigte/arbeiten-mit-einer-team-mailbox/">Arbeiten mit einer Team Mailbox</a>' +"</li>`r`n"            $out+= '<li>'+ '<a href="https://www.hilfe.uni-passau.de/arbeitsplaetze/e-mail/outlook/tipps-fuer-beschaeftigte/">Outlook Tipps für Beschäftigte</a>' +"</li>`r`n"            $out+= '</ul>'+ "`r`n"            $out+= "<br/>`r`n"            $out+= 'Freundliche Grüße' + "<br/>`r`n"            $out+= 'Ihr ZIM-Support' + "<br/>`r`n"            New-OutlookMail -Recipients $ADUsers.EmailAddress -Subject "Für Ihr Team $Team wurde eine neue Mailbox $Name angelegt" -HTMLBody $out        }    }}function zimStart-Update{<#.SYNOPSISStellt den Server in den Wartungsmodus..DESCRIPTIONStellt den Server in den Wartungsmodus, z. B. für Updates, wobei per Parameter geregelt werden kann, auf welchen Server die Queue umverteilt werden soll..PARAMETER TargetDer Zielserver für die Mail-Queue (Standard: MSXRESTORE bzw. MSXPO1 auf MSXRESTORE)#>    Param(    [String]$Target = "msxrestore.ads.uni-passau.de"    )    Set-ServerComponentState $env:COMPUTERNAME -Component HubTransport -State Draining -Requester Maintenance    Redirect-Message -Server $env:COMPUTERNAME -Target $Target -Confirm:$false    Set-ServerComponentState $env:COMPUTERNAME -Component ServerWideOffline -State Inactive -Requester Maintenance}function zimEnd-Update{<#.SYNOPSISStellt den Server vom Wartungsmodus zurück in den Online-Modus..DESCRIPTIONStellt den Server vom Wartungsmodus zurück in den Online-Modus.#>    Set-ServerComponentState $env:COMPUTERNAME -Component ServerWideOffline -State Active -Requester Maintenance    Set-ServerComponentState $env:COMPUTERNAME -Component HubTransport -State Active -Requester Maintenance}function Reload-OfflineAddressBook {    Get-OfflineAddressBook | Update-OfflineAddressBook    Get-OfflineAddressBook}<#.EXAMPLEGet-Mailbox V012_Team | Get-MailboxCalendarPermissionAdd-MailboxFolderPermission -Identity V012_Team@ads.uni-passau.de:\Kalender -User achter@ads.uni-passau.de -AccessRights Editor#>function Get-MailboxCalendarPermission {    [cmdletBinding()]    param(    [Parameter(Mandatory=$True,ValueFromPipeline=$True)]    $Mailbox    )    $mb_address=(Get-Mailbox $Mailbox).PrimarySMTPAddress.Address    Get-MailboxFolderPermission -Identity ($mb_address +":\Kalender")}
 
 Function Copy-DistributionGroupMembersToSendOnBehalf {
     [CmdletBinding()]
@@ -1392,7 +1453,7 @@ Function Get-MessageTrackingAllLogs {
     param(
         $Sender,
         $Recipients,
-        $Start,
+        $Start=(Get-Date).AddMinutes(-10),
         $End,
         [string]$EventId,
         $InternalMessageId,
@@ -2097,7 +2158,44 @@ Function Invoke-CleanExchangeLogFiles{
     End{}
 }
 
+Function Enable-MailboxArchive {
+    [CmdletBinding()]
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $Mailbox,
+        [switch]$StartManagedFolderAssistantIn5Minutes
+    )
 
+    Begin{}
+
+    Process{
+
+        $Mailbox | ForEach-Object {
+            
+            if($_.GetType().Name -eq "PSObject"){
+                $o_mailbox=$_
+            }
+            else{
+                $o_mailbox=Get-Mailbox -Identity $_
+            }
+
+            $archive_db=Get-MailboxDatabase -Server $o_mailbox.ServerName | Where-Object{$_.Name -like "*Archive-DB"}
+            #$archive_db.Name
+            $o_mailbox | Enable-Mailbox -Archive -ArchiveDatabase $archive_db.Name
+            
+            if($StartManagedFolderAssistantIn5Minutes){
+                Start-Job -ArgumentList @($o_mailbox.Name) -ScriptBlock{
+                    param($mailbox_name) 
+                    Start-Sleep -Seconds 300
+                    Start-ManagedFolderAssistant -Identity $mailbox_name
+                }
+            }
+
+        }
+    }
+
+    End{}
+}
 
 
 Register-ArgumentCompleter -CommandName Get-LdapSearchEntries -ParameterName BaseDN -ScriptBlock $Global:LdapAutocompleters.BaseDN
@@ -2118,6 +2216,9 @@ Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Tea
 Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Owners -ScriptBlock $Global:AdAutocompleters.TeamMember
 Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Members -ScriptBlock $Global:AdAutocompleters.User
 Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName SendAsUsers -ScriptBlock $Global:AdAutocompleters.User
+
+
+Register-ArgumentCompleter -CommandName Show-ManagementRoles -ParameterName ExUser -ScriptBlock $Global:AdAutocompleters.Mailbox
 
 Register-ArgumentCompleter -CommandName New-TeamDistributionGroup -ParameterName Owner -ScriptBlock $Global:AdAutocompleters.Mailbox
 Register-ArgumentCompleter -CommandName New-TeamDistributionGroup -ParameterName Members -ScriptBlock $Global:AdAutocompleters.Mailbox
