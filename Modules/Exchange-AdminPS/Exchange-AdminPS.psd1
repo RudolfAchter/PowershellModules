@@ -3,7 +3,7 @@
 #
 # Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 02.10.2020
+# Generiert am: 07.10.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Exchange-AdminPS.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '1.13'
+ModuleVersion = '1.15'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
@@ -76,23 +76,24 @@ FunctionsToExport = 'Get-MailboxQuota', 'Convert-QuotaStringToKB', 'Connect-LDAP
                'Show-MailboxFolderPermissionRecursive', 'Get-LdapSearchEntries', 
                'Enable-MailboxArchive', 'zimStart-Update', 'Invoke-Postmap', 
                'Reload-OfflineAddressBook', 'Sync-RbacSelfManagementRights', 
-               'New-PostfixEntry', 'Disconnect-Exchange', 
+               'Get-AutoMountAdUsers', 'New-PostfixEntry', 'Disconnect-Exchange', 
                'Get-MailboxCalendarPermission', 'Get-MessageTrackingAllLogs', 
-               'Invoke-DelayedAction', 'Get-ADUsers', 
-               'Sync-ExchangeRbacSelfManagement', 'ConvertTo-RegularMailbox', 
-               'Move-ExchangeUser', 'Get-MailboxTopX', 
-               'Copy-DistributionGroupMembersToSendOnBehalf', 'Get-DiskInfo', 
-               'Show-ManagementRoles', 'Add-TeamDistributionGroupPermissions', 
-               'Search-PostfixTable', 'Show-MailboxGreaterThan', 
+               'Invoke-DelayedAction', 'Sync-ExchangeRbacSelfManagement', 
+               'Get-ADUsers', 'ConvertTo-RegularMailbox', 'Move-ExchangeUser', 
+               'Get-MailboxTopX', 'Copy-DistributionGroupMembersToSendOnBehalf', 
+               'Get-DiskInfo', 'Show-ManagementRoles', 
+               'Add-TeamDistributionGroupPermissions', 'Show-MailboxGreaterThan', 
+               'Search-PostfixTable', 'Copy-Exchange2016Update', 
                'New-TeamSharedMailbox', 'Send-ExchangePostfixTablesCheck', 
-               'Get-QuestCMGLog', 'Get-MailboxDatabaseSize', 'Search-MailAddress', 
-               'Get-MailboxFolderPermissionRecursive', 'Get-RandomCharacters', 
-               'Get-RandomPassword', 'Add-TeamMailboxPermissions', 
-               'Test-MailFromExternal', 'Get-MailboxGreaterThan', 
+               'Get-QuestCMGLog', 'Get-MailboxDatabaseSize', 'Disable-AutoMount', 
+               'Search-MailAddress', 'Get-MailboxFolderPermissionRecursive', 
+               'Get-RandomCharacters', 'Get-RandomPassword', 
+               'Add-TeamMailboxPermissions', 'Test-MailFromExternal', 
+               'Enable-AutoMount', 'Get-MailboxGreaterThan', 
                'Get-QuestCMGProcessedMessages', 'Connect-Exchange', 
                'Get-ServiceConnectionEndpoint', 'Install-OwaDesign', 
-               'Check-ExchangePostfixTables', 'Get-PostfixTable', 'zimEnd-Update', 
-               'Check-MailAddressExistance'
+               'Show-AutoMount', 'Check-ExchangePostfixTables', 'Get-PostfixTable', 
+               'zimEnd-Update', 'Check-MailAddressExistance'
 
 # Aus diesem Modul zu exportierende Cmdlets. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Cmdlets vorhanden sind.
 CmdletsToExport = @()
@@ -101,7 +102,8 @@ CmdletsToExport = @()
 # VariablesToExport = @()
 
 # Aus diesem Modul zu exportierende Aliase. Um optimale Leistung zu erzielen, verwenden Sie keine Platzhalter und löschen den Eintrag nicht. Verwenden Sie ein leeres Array, wenn keine zu exportierenden Aliase vorhanden sind.
-AliasesToExport = 'Get-SCP'
+AliasesToExport = 'Get-SCP', 'Enable-MailboxDelegation', 'Get-MailboxDelegationAdUsers', 
+               'Disable-MailboxDelegation', 'Show-MailboxDelegation'
 
 # Aus diesem Modul zu exportierende DSC-Ressourcen
 # DscResourcesToExport = @()

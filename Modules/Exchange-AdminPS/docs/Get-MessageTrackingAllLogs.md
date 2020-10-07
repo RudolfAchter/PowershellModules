@@ -58,7 +58,7 @@ PARAMETER
         
         Erforderlich?                false
         Position?                    3
-        Standardwert                 
+        Standardwert                 (Get-Date).AddMinutes(-10)
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         

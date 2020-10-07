@@ -1466,10 +1466,15 @@ Function Get-MessageTrackingAllLogs {
     )
 
     $h_params=@{}
+    $h_params.Add("Start",$Start)
     ForEach($key in $MyInvocation.BoundParameters.keys){
-        $value=(Get-Variable $key).Value
-        if($null -ne $value){
-            $h_params.Add($key,$value)
+        #Parameter Auswerten die KEINEN Standardwert haben
+        #Deswegen $key -notin
+        if($key -notin @("Start")){
+            $value=(Get-Variable $key).Value
+            if($null -ne $value){
+                $h_params.Add($key,$value)
+            }
         }
     }
     
@@ -2198,6 +2203,254 @@ Function Enable-MailboxArchive {
 }
 
 
+Function Enable-AutoMount {
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $Mailbox,
+        [Parameter(Mandatory=$true)]
+        $ForUser,
+        $Credential=$Global:exchange_current_ad_credential
+    )
+
+    Begin{}
+
+    Process{
+        $Mailbox | ForEach-Object {
+            if($_.GetType().Name -eq "String"){
+                $o_mailbox=Get-Mailbox $_
+            }
+            else{
+                $o_mailbox=$_
+            }
+
+            $o_aduser=Get-ADUser $o_mailbox.DistinguishedName -Properties msExchDelegateListLink 
+
+            if($null -ne $ForUser){
+                $ForUser | ForEach-Object {
+                    $userToAdd=Get-ADUser $_
+                    $o_aduser | Set-ADUser -Add @{msExchDelegateListLink=$userToAdd.DistinguishedName} -Credential $Credential
+                }
+            }
+
+        }
+    }
+    End{}
+}
+
+Set-Alias -Name Enable-MailboxDelegation -Value Enable-AutoMount
+
+
+Function Disable-AutoMount {
+<#
+.SYNOPSIS
+    Schaltet Automount für eine SharedMailbox aus. Oder Schaltet dieses
+    nur für bestimmte User aus
+.EXAMPLE
+    Get-Mailbox W040_Team | Disable-AutoMount -ForUser "achter","reitma04"
+#>
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $Mailbox,
+        $ForUser=$null,
+        $Credential=$Global:exchange_current_ad_credential
+    )
+
+    Begin{}
+
+    Process{
+        $Mailbox | ForEach-Object {
+            if($_.GetType().Name -eq "String"){
+                $o_mailbox=Get-Mailbox $_
+            }
+            else{
+                $o_mailbox=$_
+            }
+
+            $o_aduser=Get-ADUser $o_mailbox.DistinguishedName -Properties msExchDelegateListLink 
+
+            if($null -ne $ForUser){
+                $ForUser | ForEach-Object {
+                    $userToRemove=Get-ADUser $_
+                    $o_aduser | Set-ADUser -Remove @{msExchDelegateListLink=$userToRemove.DistinguishedName} -Credential $Credential
+                }
+            }
+            else{
+                $o_aduser | Set-ADUser -Clear "msExchDelegateListLink" -Credential $Credential
+            }
+
+        }G
+    }
+    End{}
+}
+Set-Alias -Name Disable-MailboxDelegation -Value Disable-AutoMount
+
+Function Show-AutoMount {
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $Mailbox
+    )
+
+    Begin{}
+
+    Process{
+        $Mailbox | ForEach-Object {
+            if($_.GetType().Name -eq "String"){
+                $o_mailbox=Get-Mailbox $_
+            }
+            else{
+                $o_mailbox=$_
+            }
+
+            $o_aduser=Get-ADUser $o_mailbox.DistinguishedName -Properties msExchDelegateListLink 
+
+            Write-Host($o_aduser.Name)
+            Write-Host("Property: msExchDelegateListLink")
+            Write-Host($o_aduser.msExchDelegateListLink -join "`r`n")
+
+        }
+    }
+
+    End{}
+}
+Set-Alias -Name Show-MailboxDelegation -Value Show-AutoMount
+
+
+Function Get-AutoMountAdUsers {
+    param(
+        [Parameter( ValueFromPipeline=$True, Mandatory=$true)]
+        $Mailbox
+    )
+
+    Begin{}
+
+    Process{
+        $Mailbox | ForEach-Object {
+            if($_.GetType().Name -eq "String"){
+                $o_mailbox=Get-Mailbox $_
+            }
+            else{
+                $o_mailbox=$_
+            }
+
+            $o_aduser=Get-ADUser $o_mailbox.DistinguishedName -Properties msExchDelegateListLink 
+
+            #Write-Host($o_aduser.Name)
+            #Write-Host("Property: msExchDelegateListLink")
+
+            $o_aduser.msExchDelegateListLink | ForEach-Object {
+                $out_aduser=Get-ADUser $_
+                $out_aduser | Add-Member -MemberType NoteProperty -Name MailboxName -Value $o_mailbox.Name -Force
+                $out_aduser
+            }
+        }
+    }
+
+    End{}
+}
+Set-Alias -Name Get-MailboxDelegationAdUsers -Value Get-AutoMountAdUsers
+
+
+
+#\\ads.uni-passau.de\grp\S001-BigData\Basisdienste\Install\Exchange Server\2016\ExchangeServer2016-x64-cu17.iso
+
+Function Copy-Exchange2016Update {
+<#
+.SYNOPSIS
+    Aktuell "Semi Automatisiertes" Cumulative Update
+.DESCRIPTION
+    Das Commandlet Kopiert die angegebene ISO zum Remote Server und bereitet ein Script zur Unattendet Installation
+    vor und legt dieses in das selbe Verzeichnis C:\Install
+
+#>
+
+    [cmdletBinding()]
+    param(
+        $Server,
+        $IsoUncPath,
+        $CredentialForExchangeAdmin=(Get-Credential -Message "Account mit Admin Rechten am Exchange Server (Voller UserPrincipalName)")
+    )
+
+    Begin{
+        #Offensichtlich darf keine Exchange Shell offen sein wenn Exchange gepatcht wird
+        Disconnect-Exchange
+    }
+
+    Process{
+        $Server | ForEach-Object {
+            $o_server=$_
+
+            $o_iso=Get-Item $IsoUncPath
+
+            #Sollte es ExTmpMnt schon geben dann dieses Trennen und neu verbinden
+            if(Get-PSDrive | Where-Object {$_.Name -eq "ExTmpMnt"}){
+                Get-PSDrive -Name ExTmpMnt | Remove-PSDrive -Force
+            }
+
+
+            $temp_psdrive=New-PSDrive -Name "ExTmpMnt" -PSProvider FileSystem -Root ("\\" + $o_server + "\c$") -Scope Global -Credential $CredentialForExchangeAdmin
+            
+            #Temporäres ISO nach C:\Install am Remote Server kopieren
+            $temp_install_path=("\\" + $o_server + "\c$\Install")
+            If(-not(Test-Path $temp_install_path)){
+                $temp_install_dir=mkdir $temp_install_path
+            }
+            else{
+                $temp_install_dir=Get-Item $temp_install_path
+            }
+
+            Write-Host ("Kopiere "+$o_iso.FullName +" nach "+ $temp_install_dir.FullName)
+            $o_remote_iso=Copy-Item -Path $o_iso -Destination $temp_install_dir -PassThru
+
+
+            #$InstallSession=New-PSSession -ComputerName $o_server -Credential $CredentialForExchangeAdmin
+
+
+            $IsoFileName=$o_iso.Name
+            $InstallScript=($temp_install_path + "\Install-" + $o_iso.BaseName + ".ps1")
+            Set-Content -Path $InstallScript -Value @"
+#Unattendet Installation von $IsoFileName
+`$diskImage=Mount-DiskImage -ImagePath ("C:\Install\$IsoFileName") -PassThru
+`$diskDrive=`$diskImage | Get-Volume
+. (`$diskDrive.DriveLetter + ":\Setup.exe") /IAcceptExchangeServerLicenseTerms /Mode:Upgrade 
+#Temporäres ISO Unmounten und löschen
+`$diskImage | Dismount-DiskImage 
+#Remove-Item `$diskImage.ImagePath
+"@
+
+            Write-Host("Du musst folgendes am Remote Host $o_server manuell Ausführen: " + $InstallScript)
+
+            <#
+            #Das Haut alles irgendwie nicht hin. Brauch ich hierfür CredSSP? Jedenfalls gehen meine Credentials nicht korrekt ans Setup durch
+            Invoke-Command -Session $InstallSession -ArgumentList @($IsoFileName) -ScriptBlock {
+                param($IsoFileName)
+
+                $diskImage=Mount-DiskImage -ImagePath ("C:\Install\"+$IsoFileName) -PassThru
+                $diskDrive=$diskImage | Get-Volume
+                
+                #. ($diskDrive.DriveLetter + ":\Setup.exe /IAcceptExchangeServerLicenseTerms /Mode:Upgrade")
+
+                #Start-Process -FilePath ($diskDrive.DriveLetter + ":\Setup.exe") -ArgumentList @("/IAcceptExchangeServerLicenseTerms","/Mode:Upgrade") -Verb RunAs -Wait -PassThru
+
+                . ($diskDrive.DriveLetter + ":\Setup.exe") /IAcceptExchangeServerLicenseTerms /Mode:Upgrade 
+
+                #Temporäres ISO Unmounten und löschen
+                $diskImage | Dismount-DiskImage 
+                #Remove-Item $diskImage.ImagePath
+            }
+            #>
+
+            #PSDrive wieder entfernen
+            $temp_psdrive | Remove-PSDrive
+
+        }
+    }
+    End{}
+}
+
+
+
+
+
 Register-ArgumentCompleter -CommandName Get-LdapSearchEntries -ParameterName BaseDN -ScriptBlock $Global:LdapAutocompleters.BaseDN
 
 Register-ArgumentCompleter -CommandName Add-TeamMailboxPermissions -ParameterName Team -ScriptBlock $Global:AdAutocompleters.Team
@@ -2216,6 +2469,9 @@ Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Tea
 Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Owners -ScriptBlock $Global:AdAutocompleters.TeamMember
 Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName Members -ScriptBlock $Global:AdAutocompleters.User
 Register-ArgumentCompleter -CommandName New-TeamSharedMailbox -ParameterName SendAsUsers -ScriptBlock $Global:AdAutocompleters.User
+
+Register-ArgumentCompleter -CommandName Enable-AutoMount -ParameterName ForUser -ScriptBlock $Global:AdAutocompleters.Mailbox
+Register-ArgumentCompleter -CommandName Disable-AutoMount -ParameterName ForUser -ScriptBlock $Global:AdAutocompleters.Mailbox
 
 
 Register-ArgumentCompleter -CommandName Show-ManagementRoles -ParameterName ExUser -ScriptBlock $Global:AdAutocompleters.Mailbox
