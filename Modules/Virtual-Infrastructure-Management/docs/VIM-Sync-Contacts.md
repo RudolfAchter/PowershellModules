@@ -37,11 +37,11 @@ PARAMETER
     -TagCategories <Object>
         Tag Kategorien mit denen diese User Synchronisiert werden 
         Es können also mehrere Tag-Kategorien diese Kontakte enthalten
-        Standard: @("Ansprechpartner","Creator")
+        Standard: @("Responsible","Creator")
         
         Erforderlich?                false
         Position?                    2
-        Standardwert                 @("Ansprechpartner","Creator")
+        Standardwert                 @("Responsible","Creator")
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         

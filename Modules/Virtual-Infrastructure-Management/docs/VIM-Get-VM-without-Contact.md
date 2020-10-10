@@ -4,7 +4,7 @@ NAME
     VIM-Get-VM-without-Contact
     
 ÜBERSICHT
-    Sucht virtuelle Maschinen bei denen kein Ansprechpartner Tag gesetzt ist und gibt diese zurück
+    Sucht virtuelle Maschinen bei denen kein Responsible Tag gesetzt ist und gibt diese zurück
     
     
 SYNTAX
@@ -13,7 +13,7 @@ SYNTAX
     
 BESCHREIBUNG
     Das Script ruft mit Get-VM alle virtuelle Maschinen im verbunden vCenter ab. Bei den virtuellen Maschinen
-    werden die TagAssignments der Kategorie "Ansprechpartner" abgerufen. Wenn weniger als ein Ansprechpartner
+    werden die TagAssignments der Kategorie "Responsible" abgerufen. Wenn weniger als ein Responsible
     gesetzt ist, so wird die virtuelle Maschinen ausgegeben
     
 

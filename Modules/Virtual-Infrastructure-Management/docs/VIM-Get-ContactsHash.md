@@ -17,8 +17,8 @@ BESCHREIBUNG
     Die Hashtable ist wie folgt Aufgebaut
     
     contact1@megatech-communication.de
-        Name = Name                  "Name" des Ansprechpartner Tag
-        Address = E-mail-Addresse    "Description" Email-Addresse des Ansprechpartner Tags
+        Name = Name                  "Name" des Responsible Tag
+        Address = E-mail-Addresse    "Description" Email-Addresse des Responsible Tags
         Data = @{}                   Eine Lere Hashtable zum Speichern von Ergebnissen für den Contact
     
 

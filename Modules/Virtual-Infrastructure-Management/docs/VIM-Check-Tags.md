@@ -21,8 +21,8 @@ BESCHREIBUNG
                          Name              Typ
                          ------------      -----------
     Added-Property:      missingTags       Array
-    Added-Property:      Ansprechpartner   String
-    Added-Property:      Applikation       String
+    Added-Property:      Responsible   String
+    Added-Property:      Application       String
     Added-Property:      Stage             String
     
 

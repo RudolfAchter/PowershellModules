@@ -4,7 +4,7 @@ NAME
     VIM-Get-ContactTag
     
 ÜBERSICHT
-    Liefert den Tag eines Ansprechpartners
+    Liefert den Tag eines Responsibles
     
     
 SYNTAX
@@ -12,7 +12,7 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Liefert den Tag eines Ansprechpartners
+    Liefert den Tag eines Responsibles
     Hauptsächlich zur internen Verwendung im Virtual-Infrastructure-Management Modul
     Vielleicht aber auch als Standalone Cmdlet nützlich
     
@@ -21,7 +21,7 @@ BESCHREIBUNG
     
     Die Tags in vCenter heissen z.B. so
     
-    Achter, Rudolf; Ansprechpartner
+    Achter, Rudolf; Responsible
     Achter, Rudolf; Creator
     
     Dieses Cmdlet vereinfacht hierzu einfach die Handhabung
@@ -40,7 +40,7 @@ PARAMETER
         
         Erforderlich?                false
         Position?                    2
-        Standardwert                 Ansprechpartner
+        Standardwert                 Responsible
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         

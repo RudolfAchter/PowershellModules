@@ -21,8 +21,8 @@ BESCHREIBUNG
                          Name                   Typ
                          ------------           -----------
                          missingTags            Array
-                         Ansprechpartner        String
-                         Applikation            String
+                         Responsible        String
+                         Application            String
                          Stage                  String
                          VIM.DateCreated        String
                          VIM.DateUsedUntil      String
@@ -58,8 +58,8 @@ AUSGABEN
     
     -------------------------- BEISPIEL 1 --------------------------
     
-    PS C:\>Get-VM | VIM-Get-VMValue | Select Name,Ansprechpartner,Applikation,Stage,VIM.DateCreated,VIM.DateUsedUntil 
-    | Out-GridView
+    PS C:\>Get-VM | VIM-Get-VMValue | Select Name,Responsible,Application,Stage,VIM.DateCreated,VIM.DateUsedUntil | 
+    Out-GridView
     
     
     

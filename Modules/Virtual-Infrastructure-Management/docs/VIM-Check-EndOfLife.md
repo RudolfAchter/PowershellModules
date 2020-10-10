@@ -54,7 +54,7 @@ AUSGABEN
     
     -------------------------- BEISPIEL 2 --------------------------
     
-    PS C:\>$tag=Get-Tag -Category Ansprechpartner -Name "Achter*"
+    PS C:\>$tag=Get-Tag -Category Responsible -Name "Achter*"
     
     Get-VM -Tag $tag | VIM-Check-EndOfLife
     

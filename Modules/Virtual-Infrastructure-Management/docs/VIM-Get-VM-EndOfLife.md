@@ -25,7 +25,7 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -Contact <Object>
-        VMs von einem bestimmten Ansprechpartner anzeigen
+        VMs von einem bestimmten Responsible anzeigen
         
         Erforderlich?                false
         Position?                    2

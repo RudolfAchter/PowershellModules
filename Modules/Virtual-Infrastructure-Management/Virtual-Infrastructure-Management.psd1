@@ -3,7 +3,7 @@
 #
 # Generiert von: achter <Rudolf.Achter@uni-passau.de>
 #
-# Generiert am: 11.09.2020
+# Generiert am: 08.10.2020
 #
 
 @{
@@ -12,7 +12,7 @@
 RootModule = 'Virtual-Infrastructure-Management.psm1'
 
 # Die Versionsnummer dieses Moduls
-ModuleVersion = '4.5'
+ModuleVersion = '4.6'
 
 # Unterstützte PSEditions
 # CompatiblePSEditions = @()
