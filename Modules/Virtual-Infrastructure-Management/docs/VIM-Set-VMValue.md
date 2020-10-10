@@ -10,7 +10,7 @@ NAME
 SYNTAX
     VIM-Set-VMValue [-VM] <Object> [-DateCreated <Object>] [-DateUsedUntil <Object>] [-CreationMethod <String>] 
     [-CreationUser <String>] [-ArchiveOrigDatastore <String>] [-ArchiveDateArchived <String>] [-ArchiveOrigFolderPath 
-    <String>] [<CommonParameters>]
+    <String>] [-Tenant <Object>] [-Application <Object>] [<CommonParameters>]
     
     
 BESCHREIBUNG
@@ -75,6 +75,24 @@ PARAMETER
         Platzhalterzeichen akzeptieren?false
         
     -ArchiveOrigFolderPath <String>
+        
+        Erforderlich?                false
+        Position?                    named
+        Standardwert                 
+        Pipelineeingaben akzeptieren?false
+        Platzhalterzeichen akzeptieren?false
+        
+    -Tenant <Object>
+        ScriptBlock
+        
+        Erforderlich?                false
+        Position?                    named
+        Standardwert                 
+        Pipelineeingaben akzeptieren?false
+        Platzhalterzeichen akzeptieren?false
+        
+    -Application <Object>
+        ScriptBlock
         
         Erforderlich?                false
         Position?                    named

@@ -4,7 +4,7 @@ NAME
     Connect-VI
     
 SYNTAX
-    Connect-VI [-vi] <Object> [[-User] <string>] [[-Password] <string>]  [<CommonParameters>]
+    Connect-VI [[-vi] <Object>] [[-User] <string>] [[-Password] <string>]  [<CommonParameters>]
     
     
 PARAMETER
@@ -28,7 +28,7 @@ PARAMETER
         
     -vi <Object>
         
-        Erforderlich?                true
+        Erforderlich?                false
         Position?                    0
         Pipelineeingaben akzeptieren?false
         Name des Parametersatzes           (Alle)

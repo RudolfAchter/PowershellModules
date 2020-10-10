@@ -15,7 +15,7 @@ BESCHREIBUNG
     Holt sich das aktuelle primäre vCenter
     
     Wichtige Tags:
-        Category: Applikation          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird 
+        Category: Application          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird 
     gesichert
     
 

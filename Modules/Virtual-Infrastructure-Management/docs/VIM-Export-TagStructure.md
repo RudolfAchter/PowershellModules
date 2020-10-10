@@ -13,8 +13,8 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Das exportierte File kannst du dann zum Beispiel zum Kunden kopieren und dort importieren.
-    Beim Management System des Kunden muss entsprechend das Virtual-Infrastructure-Management Modul installiert sein
+    Das exportierte File kannst du dann zum Beispiel zum Tenantn kopieren und dort importieren.
+    Beim Management System des Tenantn muss entsprechend das Virtual-Infrastructure-Management Modul installiert sein
     
 
 PARAMETER

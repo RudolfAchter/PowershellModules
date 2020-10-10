@@ -14,8 +14,8 @@ SYNTAX
 BESCHREIBUNG
     Erwartet als Parameter eine virtuelle Maschine. Es werden die relevanten Ansprechparnter
     für die virtuelle Maschine zurückgegeben (ARRAY). Und das in folgender Reihenfolge:
-        1. Ansprechpartner im Ansprechpartner Tag
-        2. Creator wenn kein Ansprechpartner vorhanden
+        1. Responsible im Responsible Tag
+        2. Creator wenn kein Responsible vorhanden
         3. Admins wenn kein Creator vorhanden
     
 

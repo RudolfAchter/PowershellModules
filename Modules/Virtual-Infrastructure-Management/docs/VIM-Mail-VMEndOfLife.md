@@ -12,13 +12,13 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Durchsucht alle Ansprechpartner und benachrichtigt alle über ablaufende VMs.
+    Durchsucht alle Responsible und benachrichtigt alle über ablaufende VMs.
     Über VMs die bereits archiviert wurden, wird nicht mehr benachrichtigt.
     
 
 PARAMETER
     -Contact <String>
-        Ansprechpartner Tag oder Ansprechpartner als String.
+        Responsible Tag oder Responsible als String.
         
         Es können auch Wildcards verwendet werden. z.B.:
         VIM-Mail-VMEndOfLife -Contact "Achter*"
@@ -39,7 +39,7 @@ PARAMETER
         
     -MailTo <Object>
         Ein Empfänger als String oder mehrere Empfänger als String Array.
-        Standardmäßig wird diese Mail an die Ansprechpartner gesendet.
+        Standardmäßig wird diese Mail an die Responsible gesendet.
         Dieser Parameter dient als Umleitung (für Tests)
         
         Erforderlich?                false

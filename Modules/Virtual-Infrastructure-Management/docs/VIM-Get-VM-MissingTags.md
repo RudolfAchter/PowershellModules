@@ -17,8 +17,8 @@ BESCHREIBUNG
 
 PARAMETER
     -Contact <Object>
-        String oder Tag: Ansprechpartner für den VMs mit "MissingTags" gesucht werden. Wird ein Tag übergeben kann 
-        nach "Creator" oder "Ansprechpartner" unterschieden werden
+        String oder Tag: Responsible für den VMs mit "MissingTags" gesucht werden. Wird ein Tag übergeben kann nach 
+        "Creator" oder "Responsible" unterschieden werden
         
         Erforderlich?                false
         Position?                    1
@@ -40,7 +40,7 @@ AUSGABEN
     
     PS C:\>VIM-Get-VM-MissingTags -Contact "Schneider*"
     
-    #Zeigt VMs mit Schneider, Jens (oder alle die mit Schneider beginnen) als Ansprechpartner
+    #Zeigt VMs mit Schneider, Jens (oder alle die mit Schneider beginnen) als Responsible
     
     
     

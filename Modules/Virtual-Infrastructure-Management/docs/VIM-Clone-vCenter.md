@@ -16,9 +16,9 @@ BESCHREIBUNG
     Es müssen vorher Tags auf Objekte festgelegt worden sein damit das Backup funktioniert
     
     Wichtige Tags:
-        Category: Applikation          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird 
+        Category: Application          Tag:vCenterPrimary    Markierung für dem primären vCenter Host, dieser wird 
     gesichert
-        Category: Applikation          Tag:vCenterBackup     Markierung für den vCenter Klon. Wenn das primäre vCenter 
+        Category: Application          Tag:vCenterBackup     Markierung für den vCenter Klon. Wenn das primäre vCenter 
     ausgefallen ist
                                                              muss der vCenter Klon als "vCenterPrimary" markiert werden
         Category: DatastoreUsage       Tag:Backup            Auf diesen Datastore wird vCenter geklont

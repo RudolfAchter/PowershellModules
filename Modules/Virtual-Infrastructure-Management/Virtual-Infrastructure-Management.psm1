@@ -234,6 +234,36 @@ Function VIM-Create-TagCategories {
 }
 
 
+#//XXX das hier gehört evtl in ein separates Modul
+Function Format-Bytes {
+    Param
+    (
+        [Parameter(
+            ValueFromPipeline = $true
+        )]
+        [ValidateNotNullOrEmpty()]
+        [float]$number
+    )
+    Begin{
+        $sizes = 'KB','MB','GB','TB','PB'
+    }
+    Process {
+        # New for loop
+        for($x = 0;$x -lt $sizes.count; $x++){
+            if ($number -lt "1$($sizes[$x])"){
+                if ($x -eq 0){
+                    return "$number B"
+                } else {
+                    $num = $number / "1$($sizes[$x-1])"
+                    $num = "{0:N2}" -f $num
+                    return "$num $($sizes[$x-1])"
+                }
+            }
+        }
+    }
+    End{}
+}
+
 
 
 
@@ -983,6 +1013,63 @@ Function VIM-Show-VMValue {
     }
         
 }
+
+Function Measure-VMResources {
+    param(  
+    [Parameter(
+        Position=0, 
+        Mandatory=$true, 
+        ValueFromPipeline=$true,
+        ValueFromPipelineByPropertyName=$true)
+    ]
+    [Alias('VirtualMachine')]
+    $VM)
+
+    Begin{
+        $a_vm=@()
+    }
+
+    Process{
+        $VM | ForEach-Object {
+            $a_vm+=Get-VM $_
+        }
+    
+    }
+
+    End{
+
+        #//XXX Todo Das hier wäre eine "GroupBy Property" Variante wie in SQL GroupBy
+        #//siehe: https://powershell.org/forums/topic/using-group-object-to-sum-more-than-one-column-property/
+
+        <#
+        $a_vm | Group-Object -Property Name | ForEach-Object {
+            $o_vm=$_
+            [PSCustomObject]@{
+              Id = $o_vm.Name
+              NumCpu = ($o_vm.Group.NumCpu|Measure -sum).Sum
+              MemoryGB = ($o_vm.Group.MemoryGB|Measure -sum).Sum
+              ProvisionedSpaceGB = ($o_vm.Group.ProvisionedSpaceGB|Measure -sum).Sum
+              UsedSpaceGB = ($o_vm.Group.UsedSpaceGB|Measure -sum).Sum
+            }
+        }
+        #>
+
+        #Das hier ist Summiere alles
+
+        [PSCustomObject]@{
+              NumCpu = ($a_vm.NumCpu|Measure -sum).Sum
+              Memory = (($a_vm.MemoryMB|Measure -sum).Sum * 1024 * 1024) | Format-Bytes
+              ProvisionedSpace = (($a_vm.ProvisionedSpaceGB|Measure -sum).Sum * 1024 * 1024 * 1024) | Format-Bytes
+              RealHddProvSpace = (($a_vm | Get-HardDisk).CapacityGB|Measure -sum).Sum * 1024 * 1024 * 1024 | Format-Bytes
+              UsedSpace = (($a_vm.UsedSpaceGB|Measure -sum).Sum * 1024 * 1024 * 1024) | Format-Bytes
+        }
+
+    
+    }
+
+
+}
+
 
 
 Function VIM-Set-UsageTime {
@@ -7424,6 +7511,310 @@ function New-VIAccount($principal) {
     Write-Output (New-Object VMware.VimAutomation.ViCore.Impl.V1.PermissionManagement.VIUserAccountImpl  -ArgumentList $principal, "", $client)
 
 }
+
+
+<#
+.SYNOPSIS
+    Löscht ALLE Snapshot der VM mit Hilfe von -RemoveChildren
+#>
+Function Remove-AllSnapshots {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM=(Get-VM),
+        [switch]$Confirm=$true
+    )
+
+    Begin {}
+
+    Process{
+        $VM | ForEach-Object {
+            $o_vm=Get-VM $_
+            <#
+                Wähle den ersten erstellten Snapshot der Maschine (das ist dann der oberste "Parent")
+                und lösche den Snapshot mit all seinen Children.
+                Das führt dann auch zu einer Konsolidierung aller Festplatten
+            #>
+            $o_vm | Get-Snapshot | Sort-Object -Property Created | 
+                Select-Object -First 1 | Remove-Snapshot -RemoveChildren -Confirm:$Confirm
+        }
+    }
+
+    End {}
+
+}
+
+
+Function Send-VMKeystrokes {
+<#
+.SYNOPSIS
+    Sends Keystrokes to VMs via vSphere API
+.DESCRIPTION
+    This function sends a series of character keystrokse to one ore more VMs
+    This Uses US Keyboard Layout (QWERTY) which is default on most Machines
+    or Live CDs that you boot.
+    So this is not compatible with German Keyboard Layout
+.PARAMETER VM
+    Collection of VMs to send keystrokes to
+.PARAMETER StringInput
+    The string of characters to send to VM
+.PARAMETER DebugOn
+    Enable debugging which will output input charcaters and their mappings
+.PARAMETER StringInput
+    The string of single characters to send to the VM
+.PARAMETER SpecialKeyInput
+    All Function Keys i.e. F1 - F12
+    Keyboard TAB, ESC, BACKSPACE, ENTER
+    Keyboard Up, Down, Left Right
+.EXAMPLE
+    Send-VMKeystrokes -VM $VM -StringInput "root"
+
+    Push "root" to VM $VM
+.EXAMPLE
+    Send-VMKeystrokes -VM $VM -StringInput "root" -ReturnCarriage $true
+
+    Push "root" with return line to VM $VM
+.EXAMPLE
+    Send-VMKeystrokes -VM $VM -StringInput "root" -DebugOn $true
+
+    Push "root" to VM $VM with some debug
+.EXAMPLE
+    Send-VMKeystrokes -VMName $VM -SpecialKeyInput "F2"
+
+    Push SpecialKeyInput F2 to VM $VM
+.EXAMPLE
+    Get-VM yourVM | Send-VMKeystrokes -StringInput "fdisk -l | less"
+.NOTES
+    ===========================================================================
+     Created by:    William Lam
+     Organization:  VMware
+     Blog:          www.virtuallyghetto.com
+     Twitter:       @lamw
+    ===========================================================================
+    ===========================================================================
+     Modified by:   David Rodriguez
+     Organization:  Sysadmintutorials
+     Blog:          www.sysadmintutorials.com
+     Twitter:       @systutorials
+    ===========================================================================
+    Modifications:
+        Made $StringInput Optional
+        Added a $SpecialKeyInput - See PARAMETER SpecialKeyInput below
+        Added description to write-hosts [SCRIPTINPUT] OR [SPECIALKEYINPUT]
+
+    ===========================================================================
+     Modified by:   Rudolf Achter
+     Organization:  Universität Passau
+     Blog:          www.uni-passau.de
+    ===========================================================================
+    Modifications:
+        Addes Ability to Pipe multiple VMs in
+        Documentation for German Keyboard layout (which is not compatible)
+#>
+    [CmdletBinding()]
+    param(
+
+        [Parameter(ValueFromPipeline=$true,Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('VirtualMachine')]
+        $VM,
+        #[Parameter(Mandatory = $true)][String]$VMName,
+        [Parameter(Mandatory = $false)][String]$StringInput,
+        [Parameter(Mandatory = $false)][String]$SpecialKeyInput,
+        [Parameter(Mandatory = $false)][Boolean]$ReturnCarriage,
+        [Parameter(Mandatory = $false)][Boolean]$DebugOn
+    )
+
+    Begin{
+        # Map subset of USB HID keyboard scancodes
+        # https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
+        $hidCharacterMap = @{
+            "a"            = "0x04";
+            "b"            = "0x05";
+            "c"            = "0x06";
+            "d"            = "0x07";
+            "e"            = "0x08";
+            "f"            = "0x09";
+            "g"            = "0x0a";
+            "h"            = "0x0b";
+            "i"            = "0x0c";
+            "j"            = "0x0d";
+            "k"            = "0x0e";
+            "l"            = "0x0f";
+            "m"            = "0x10";
+            "n"            = "0x11";
+            "o"            = "0x12";
+            "p"            = "0x13";
+            "q"            = "0x14";
+            "r"            = "0x15";
+            "s"            = "0x16";
+            "t"            = "0x17";
+            "u"            = "0x18";
+            "v"            = "0x19";
+            "w"            = "0x1a";
+            "x"            = "0x1b";
+            "y"            = "0x1c";
+            "z"            = "0x1d";
+            "1"            = "0x1e";
+            "2"            = "0x1f";
+            "3"            = "0x20";
+            "4"            = "0x21";
+            "5"            = "0x22";
+            "6"            = "0x23";
+            "7"            = "0x24";
+            "8"            = "0x25";
+            "9"            = "0x26";
+            "0"            = "0x27";
+            "!"            = "0x1e";
+            "@"            = "0x1f";
+            "#"            = "0x20";
+            "$"            = "0x21";
+            "%"            = "0x22";
+            "^"            = "0x23";
+            "&"            = "0x24";
+            "*"            = "0x25";
+            "("            = "0x26";
+            ")"            = "0x27";
+            "_"            = "0x2d";
+            "+"            = "0x2e";
+            "{"            = "0x2f";
+            "}"            = "0x30";
+            "|"            = "0x31";
+            ":"            = "0x33";
+            "`""           = "0x34";
+            "~"            = "0x35";
+            "<"            = "0x36";
+            ">"            = "0x37";
+            "?"            = "0x38";
+            "-"            = "0x2d";
+            "="            = "0x2e";
+            "["            = "0x2f";
+            "]"            = "0x30";
+            "\"            = "0x31";
+            "`;"           = "0x33";
+            "`'"           = "0x34";
+            ","            = "0x36";
+            "."            = "0x37";
+            "/"            = "0x38";
+            " "            = "0x2c";
+            "F1"           = "0x3a";
+            "F2"           = "0x3b";
+            "F3"           = "0x3c";
+            "F4"           = "0x3d";
+            "F5"           = "0x3e";
+            "F6"           = "0x3f";
+            "F7"           = "0x40";
+            "F8"           = "0x41";
+            "F9"           = "0x42";
+            "F10"          = "0x43";
+            "F11"          = "0x44";
+            "F12"          = "0x45";
+            "TAB"          = "0x2b";
+            "KeyUp"        = "0x52";
+            "KeyDown"      = "0x51";
+            "KeyLeft"      = "0x50";
+            "KeyRight"     = "0x4f";
+            "KeyESC"       = "0x29";
+            "KeyBackSpace" = "0x2a";
+            "KeyEnter"     = "0x28";
+        }
+
+    }
+
+    Process{
+
+        $VM | ForEach-Object {
+            $tmp_vm=Get-VM $_
+            $o_vm = Get-View -ViewType VirtualMachine -Filter @{"Name" = "^$($tmp_vm.Name)$" }
+
+            # Verify we have a VM or fail
+            if (!$o_vm) {
+                Write-host "Unable to find VM ($tmp_vm.Name)"
+                return
+            }
+
+            #Code for -StringInput
+            if ($StringInput) {
+                $hidCodesEvents = @()
+                foreach ($character in $StringInput.ToCharArray()) {
+                    # Check to see if we've mapped the character to HID code
+                    if ($hidCharacterMap.ContainsKey([string]$character)) {
+                        $hidCode = $hidCharacterMap[[string]$character]
+
+                        $tmp = New-Object VMware.Vim.UsbScanCodeSpecKeyEvent
+
+                        # Add leftShift modifer for capital letters and/or special characters
+                        if ( ($character -cmatch "[A-Z]") -or ($character -match "[!|@|#|$|%|^|&|(|)|_|+|{|}|||:|~|<|>|?|*]") ) {
+                            $modifer = New-Object Vmware.Vim.UsbScanCodeSpecModifierType
+                            $modifer.LeftShift = $true
+                            $tmp.Modifiers = $modifer
+                        }
+
+                        # Convert to expected HID code format
+                        $hidCodeHexToInt = [Convert]::ToInt64($hidCode, "16")
+                        $hidCodeValue = ($hidCodeHexToInt -shl 16) -bor 0007
+
+                        $tmp.UsbHidCode = $hidCodeValue
+                        $hidCodesEvents += $tmp
+
+                        if ($DebugOn) {
+                            Write-Host "[StringInput] Character: $character -> HIDCode: $hidCode -> HIDCodeValue: $hidCodeValue"
+                        }
+                    }
+                    else {
+                        Write-Host "[StringInput] The following character `"$character`" has not been mapped, you will need to manually process this character"
+                        break
+                    }
+
+                }
+            }
+
+            #Code for -SpecialKeyInput
+            if ($SpecialKeyInput) {
+                if ($hidCharacterMap.ContainsKey([string]$SpecialKeyInput)) {
+                    $hidCode = $hidCharacterMap[[string]$SpecialKeyInput]
+                    $tmp = New-Object VMware.Vim.UsbScanCodeSpecKeyEvent
+                    $hidCodeHexToInt = [Convert]::ToInt64($hidCode, "16")
+                    $hidCodeValue = ($hidCodeHexToInt -shl 16) -bor 0007
+
+                    $tmp.UsbHidCode = $hidCodeValue
+                    $hidCodesEvents += $tmp
+
+                    if ($DebugOn) {
+                        Write-Host "[SpecialKeyInput] Character: $character -> HIDCode: $hidCode -> HIDCodeValue: $hidCodeValue"
+                    }
+                }
+                else {
+                    Write-Host "[SpecialKeyInput] The following character `"$character`" has not been mapped, you will need to manually process this character"
+                    break
+                }
+            }
+
+            # Add return carriage to the end of the string input (useful for logins or executing commands)
+            if ($ReturnCarriage) {
+                # Convert return carriage to HID code format
+                $hidCodeHexToInt = [Convert]::ToInt64("0x28", "16")
+                $hidCodeValue = ($hidCodeHexToInt -shl 16) + 7
+
+                $tmp = New-Object VMware.Vim.UsbScanCodeSpecKeyEvent
+                $tmp.UsbHidCode = $hidCodeValue
+                $hidCodesEvents += $tmp
+            }
+
+            # Call API to send keystrokes to VM
+            $spec = New-Object Vmware.Vim.UsbScanCodeSpec
+            $spec.KeyEvents = $hidCodesEvents
+            Write-Host "Sending keystrokes to ($tmp_vm.Name) ...`n"
+            $results = $o_vm.PutUsbScanCodes($spec)
+        }
+    }
+
+    End{}
+}
+
+
 
 
 

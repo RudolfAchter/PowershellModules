@@ -4,7 +4,7 @@ NAME
     VIM-Mail-VM-without-Contact
     
 ÜBERSICHT
-    Sendet eine E-Mail mit einer Auflistung der VMs bei denen kein Ansprechpartner gelistet ist
+    Sendet eine E-Mail mit einer Auflistung der VMs bei denen kein Responsible gelistet ist
     
     
 SYNTAX

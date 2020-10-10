@@ -5,8 +5,8 @@ NAME
     
 ÜBERSICHT
     Verschickt Mails für VMs bei denen Tags fehlen
-    Primär werden die Ansprechpartner angeschrieben
-    Sollte ein Ansprechpartner fehlen, wird die Mail an den Creator geschickt
+    Primär werden die Responsible angeschrieben
+    Sollte ein Responsible fehlen, wird die Mail an den Creator geschickt
     
     
 SYNTAX
@@ -17,7 +17,7 @@ BESCHREIBUNG
     Die Funktion marschiert durch VIM-Get-VM-MissingTags
     Inhalte der zu versendenden Mails werden in HashTables für die Empfänger summiert
     Die Empfänger werden in dieser Reihenfolge ermittelt:
-        1. Ansprechpartner
+        1. Responsible
         2. Creator
         3. $global:vim_ad_groups
     
@@ -25,7 +25,7 @@ BESCHREIBUNG
 PARAMETER
     -MailTo <Object>
         Ein Empfänger als String oder mehrere Empfänger als String Array.
-        Standardmäßig wird diese Mail an die Ansprechpartner gesendet.
+        Standardmäßig wird diese Mail an die Responsible gesendet.
         Dieser Parameter dient als Umleitung (für Tests)
         
         Erforderlich?                false

@@ -4,7 +4,7 @@ NAME
     VIM-Get-ContactAssignment
     
 ÜBERSICHT
-    Zeigt Ansprechpartner einer VM an
+    Zeigt Responsible einer VM an
     
     
 SYNTAX
@@ -12,16 +12,16 @@ SYNTAX
     
     
 BESCHREIBUNG
-    Zeigt Ansprechpartner einer VM an
+    Zeigt Responsible einer VM an
     
     geplante Kategorien:
     
     Wichtige Tags:
         Tags werden auf ESX-HOST Objekte zugewiesen
-        Category: Ansprechpartner         Tag:*                       Ansprechpartner. Beschreibung des 
-    Ansprechpartners ist die E-Mail-Addresse
-        Category: Creator                 Tag:*                       Ersteller der VM. Beschreibung des 
-    Ansprechpartners ist die E-Mail-Addresse
+        Category: Responsible         Tag:*                       Responsible. Beschreibung des Responsibles ist die 
+    E-Mail-Addresse
+        Category: Creator                 Tag:*                       Ersteller der VM. Beschreibung des Responsibles 
+    ist die E-Mail-Addresse
     
 
 PARAMETER
@@ -38,7 +38,7 @@ PARAMETER
         
         Erforderlich?                false
         Position?                    named
-        Standardwert                 Ansprechpartner
+        Standardwert                 Responsible
         Pipelineeingaben akzeptieren?false
         Platzhalterzeichen akzeptieren?false
         
